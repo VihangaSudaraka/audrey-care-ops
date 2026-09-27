@@ -901,6 +901,7 @@ const GOOGLE_REVIEW_CONFIGURED = GOOGLE_REVIEW_LINK !== 'PASTE_GOOGLE_REVIEW_LIN
 const SMS_TEMPLATE_INFO = {
   orderProcessing: {label:'Order now processing', placeholders:['customer','orderNumber','trackLink']},
   orderPickedUp: {label:'Order picked up by delivery', placeholders:['customer','orderNumber','trackLink','reviewLink']},
+  trackingUpdated: {label:'Delivery tracking number updated', placeholders:['customer','orderNumber','trackLink']},
   orderReviewFacebook: {label:'Order inquiry — "Send FB review link" button', placeholders:['customer','orderNumber','reviewLink']},
   orderReviewGoogle: {label:'Order inquiry — "Send Google review" button', placeholders:['customer','orderNumber','reviewLink']},
   complaintOpen: {label:'Complaint received (Open)', placeholders:['customer','trackLink']},
@@ -909,6 +910,7 @@ const SMS_TEMPLATE_INFO = {
 const DEFAULT_SMS_TEMPLATES = {
   orderProcessing: 'Hi {customer}, your Audrey Care order {orderNumber} is now processing! Track it: {trackLink}',
   orderPickedUp: "Hi {customer}, your Audrey Care order {orderNumber} has been picked up by delivery! Track it: {trackLink}. We'd love your feedback — please write a review here: {reviewLink}",
+  trackingUpdated: 'Hi {customer}, the delivery tracking for your Audrey Care order {orderNumber} was just updated. Track it: {trackLink}',
   orderReviewFacebook: "Hi {customer}, thank you for choosing Audrey Care! We'd love your feedback — please write us a Facebook review here: {reviewLink}",
   orderReviewGoogle: "Hi {customer}, thank you for choosing Audrey Care! We'd love your feedback — please write us a Google review here: {reviewLink}",
   complaintOpen: "Hi {customer}, we've received your complaint. Track it here: {trackLink}",
@@ -927,6 +929,13 @@ async function sendOrderProcessingSms(o){
   const msg = fillTemplate(smsTemplate('orderProcessing'), {customer:o.customer, orderNumber:o.orderNumber||o.id, trackLink:orderTrackLink(o.id)});
   const result = await sendSms(o.phone, msg);
   if(!result.ok) showToast('SMS not sent: ' + result.error, 8000);
+  return result;
+}
+async function sendOrderTrackingUpdatedSms(o){
+  const msg = fillTemplate(smsTemplate('trackingUpdated'), {customer:o.customer, orderNumber:o.orderNumber||o.id, trackLink:orderTrackLink(o.id)});
+  const result = await sendSms(o.phone, msg);
+  if(result.ok){ o.smsSentAt = new Date().toISOString(); await save('orders'); showToast('SMS sent to customer'); }
+  else{ showToast('SMS not sent: ' + result.error, 8000); }
   return result;
 }
 const COMPLAINT_SMS_TEMPLATE_KEYS = {'Open':'complaintOpen', 'Resolved':'complaintResolved'};
@@ -2120,10 +2129,15 @@ function orderAutoSmsKind(stage){
 }
 // Either sends the automatic stage-change SMS right away (when "Send SMS automatically" is on),
 // or opens a Yes/No confirmation popup first (when it's off) — see Settings → SMS settings.
+function orderSmsSender(kind){
+  if(kind==='pickedup') return sendOrderTrackingSms;
+  if(kind==='trackingUpdated') return sendOrderTrackingUpdatedSms;
+  return sendOrderProcessingSms;
+}
 async function triggerAutoOrderSms(o, kind){
   if(!kind || !SMS_CONFIGURED){ closeModal(); return; }
   if(orderSmsAutoSend()){
-    if(kind==='pickedup') sendOrderTrackingSms(o); else sendOrderProcessingSms(o);
+    orderSmsSender(kind)(o);
     closeModal();
   } else {
     state.pendingSmsConfirm = {orderId:o.id, kind};
@@ -2187,6 +2201,7 @@ async function submitOrderEdit(e){
   const o = byId(state.orders, id); if(!o) return;
   syncRichTextInputs(f);
   if(!stripTags(f.product.value)){ showToast('Enter the product / task'); return; }
+  const oldCourierNumber = (o.courierNumber||'').trim();
   Object.assign(o, {
     product: f.product.value.trim(),
     priority: f.priority.value, startDate: f.startDate.value, dueDate: f.dueDate.value,
@@ -2203,8 +2218,11 @@ async function submitOrderEdit(e){
   } else if(f.elements['removeOrderPhoto'] && f.elements['removeOrderPhoto'].value==='1'){
     o.photo = null; o.photoUploadedAt = null;
   }
-  await save('orders'); closeModal();
+  await save('orders');
   showToast(photoError ? `Order updated, but the picture could not be uploaded: ${photoError}` : 'Order updated', photoError?9000:undefined);
+  const trackingChanged = o.courierNumber && o.courierNumber!==oldCourierNumber;
+  if(trackingChanged && o.phone) await triggerAutoOrderSms(o, 'trackingUpdated');
+  else closeModal();
 }
 async function updateOrderNotes(id, notes){
   const o = byId(state.orders,id); if(!o) return;
@@ -6109,7 +6127,7 @@ function smsConfirmModal(){
   const pc = state.pendingSmsConfirm;
   const o = pc && byId(state.orders, pc.orderId);
   if(!pc || !o) return '';
-  const label = pc.kind==='pickedup' ? 'has been picked up by delivery' : 'is now processing';
+  const label = pc.kind==='pickedup' ? 'has been picked up by delivery' : pc.kind==='trackingUpdated' ? 'has an updated delivery tracking link' : 'is now processing';
   return `
   <div class="overlay" id="overlay">
     <div class="modal" style="max-width:400px;">
@@ -7324,7 +7342,7 @@ function attachShellHandlers(){
   if(byIdEl('btn-sms-confirm-yes')) byIdEl('btn-sms-confirm-yes').onclick = ()=>{
     const pc = state.pendingSmsConfirm; if(!pc) return;
     const o = byId(state.orders, pc.orderId);
-    if(o){ if(pc.kind==='pickedup') sendOrderTrackingSms(o); else sendOrderProcessingSms(o); }
+    if(o){ orderSmsSender(pc.kind)(o); }
     closeModal();
   };
   if(byIdEl('btn-sms-confirm-no')) byIdEl('btn-sms-confirm-no').onclick = ()=>closeModal();
