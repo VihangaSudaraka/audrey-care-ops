@@ -1153,6 +1153,87 @@ const CUSTOMER_UPDATE_STATUSES = ['Not Updated','Phone rang but not answered','L
 const COMPLAINT_STATUSES = ['Open','Assigned','In Progress','Resolved','Closed'];
 const COMPLAINT_PHOTOS_BUCKET = 'complaint-photos';
 const MAX_COMPLAINT_PHOTOS = 5;
+const PHOTO_EXPIRY_DAYS = 7;
+
+// Resizes/re-encodes an image file to a JPEG blob before upload, to keep Supabase Storage usage
+// down — phone-camera photos are often 2-5MB, this typically gets them under ~300KB with little
+// visible quality loss. Falls back to the original file untouched if anything goes wrong (a
+// non-image file, a decode failure, an older browser) so a failed compression never blocks the
+// actual upload.
+function compressImage(file, maxDim, quality){
+  return new Promise((resolve)=>{
+    if(!file || !file.type || !file.type.startsWith('image/')){ resolve(file); return; }
+    try{
+      const reader = new FileReader();
+      reader.onload = (e)=>{
+        const img = new Image();
+        img.onload = ()=>{
+          let { width, height } = img;
+          if(width > maxDim || height > maxDim){
+            if(width > height){ height = Math.round(height * maxDim / width); width = maxDim; }
+            else { width = Math.round(width * maxDim / height); height = maxDim; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width; canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob((blob)=>{ resolve(blob || file); }, 'image/jpeg', quality);
+        };
+        img.onerror = ()=> resolve(file);
+        img.src = e.target.result;
+      };
+      reader.onerror = ()=> resolve(file);
+      reader.readAsDataURL(file);
+    }catch(e){ resolve(file); }
+  });
+}
+
+// Pulls the Storage object path back out of a Supabase public URL, so an expired photo can be
+// deleted from Storage (not just unlinked from the order/complaint record).
+function storagePathFromUrl(url, bucket){
+  if(!url) return null;
+  const marker = `/object/public/${bucket}/`;
+  const idx = url.indexOf(marker);
+  if(idx===-1) return null;
+  try{ return decodeURIComponent(url.slice(idx + marker.length)); }catch(e){ return url.slice(idx + marker.length); }
+}
+function isPhotoExpired(uploadedAt){
+  if(!uploadedAt) return false;
+  return (Date.now() - new Date(uploadedAt).getTime()) > PHOTO_EXPIRY_DAYS*24*60*60*1000;
+}
+// Complaint photo entries are {url, uploadedAt} going forward, but complaints saved before this
+// feature existed still have plain URL strings — both are handled everywhere c.photos is read.
+function complaintPhotoUrl(p){ return typeof p==='string' ? p : p.url; }
+
+// Deletes any order/complaint photo uploaded more than PHOTO_EXPIRY_DAYS ago, both from Storage
+// and from the record referencing it. Legacy complaint photos (plain strings, no uploadedAt) are
+// left alone since we don't know their real age. Returns which collections changed, so the
+// caller knows what to save.
+async function sweepExpiredPhotos(){
+  if(!BACKEND_CONFIGURED) return {orders:false, complaints:false};
+  let ordersChanged = false, complaintsChanged = false;
+  for(const o of state.orders){
+    if(o.photo && isPhotoExpired(o.photoUploadedAt)){
+      const path = storagePathFromUrl(o.photo, ORDER_PHOTOS_BUCKET);
+      if(path){ try{ await supabaseClient.storage.from(ORDER_PHOTOS_BUCKET).remove([path]); }catch(e){ console.error('expired order photo delete failed', e); } }
+      o.photo = null; o.photoUploadedAt = null; ordersChanged = true;
+    }
+  }
+  for(const c of state.complaints){
+    if(!Array.isArray(c.photos) || !c.photos.length) continue;
+    const keep = [];
+    for(const p of c.photos){
+      if(typeof p!=='string' && isPhotoExpired(p.uploadedAt)){
+        const path = storagePathFromUrl(p.url, COMPLAINT_PHOTOS_BUCKET);
+        if(path){ try{ await supabaseClient.storage.from(COMPLAINT_PHOTOS_BUCKET).remove([path]); }catch(e){ console.error('expired complaint photo delete failed', e); } }
+        complaintsChanged = true;
+      } else keep.push(p);
+    }
+    if(keep.length!==c.photos.length) c.photos = keep;
+  }
+  return {orders:ordersChanged, complaints:complaintsChanged};
+}
+
 // Uploads up to `limit` files to the complaint-photos Storage bucket (see BACKEND SETUP at the
 // top of the file) and returns the public URLs that succeeded. Failures are logged and skipped
 // rather than blocking the rest of the save — a photo that didn't upload shouldn't lose the
@@ -1160,16 +1241,16 @@ const MAX_COMPLAINT_PHOTOS = 5;
 async function uploadComplaintPhotos(complaintId, fileList, limit){
   if(!BACKEND_CONFIGURED || !fileList || !fileList.length || limit<=0) return [];
   const files = [...fileList].slice(0, limit);
-  const urls = [];
+  const entries = [];
   for(const file of files){
-    const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
-    const path = `${complaintId}/${Date.now()}-${Math.random().toString(36).slice(2,8)}-${safeName}`;
-    const { error } = await supabaseClient.storage.from(COMPLAINT_PHOTOS_BUCKET).upload(path, file);
+    const compressed = await compressImage(file, 1600, 0.72);
+    const path = `${complaintId}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.jpg`;
+    const { error } = await supabaseClient.storage.from(COMPLAINT_PHOTOS_BUCKET).upload(path, compressed, {contentType:'image/jpeg'});
     if(error){ console.error('complaint photo upload failed', error); continue; }
     const { data } = supabaseClient.storage.from(COMPLAINT_PHOTOS_BUCKET).getPublicUrl(path);
-    if(data && data.publicUrl) urls.push(data.publicUrl);
+    if(data && data.publicUrl) entries.push({url: data.publicUrl, uploadedAt: new Date().toISOString()});
   }
-  return urls;
+  return entries;
 }
 const ORDER_PHOTOS_BUCKET = 'order-photos';
 // Single-photo upload for the order "Add a picture" field — one image per order, not a gallery.
@@ -1178,9 +1259,9 @@ const ORDER_PHOTOS_BUCKET = 'order-photos';
 async function uploadOrderPhoto(orderId, file){
   if(!BACKEND_CONFIGURED) return {url:null, error:'Backend not configured'};
   if(!file) return {url:null, error:'No file given'};
-  const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_') || 'image.png';
-  const path = `${orderId}/${Date.now()}-${Math.random().toString(36).slice(2,8)}-${safeName}`;
-  const { error } = await supabaseClient.storage.from(ORDER_PHOTOS_BUCKET).upload(path, file);
+  const compressed = await compressImage(file, 1600, 0.72);
+  const path = `${orderId}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.jpg`;
+  const { error } = await supabaseClient.storage.from(ORDER_PHOTOS_BUCKET).upload(path, compressed, {contentType:'image/jpeg'});
   if(error){ console.error('order photo upload failed', error); return {url:null, error: error.message || 'Upload failed'}; }
   const { data } = supabaseClient.storage.from(ORDER_PHOTOS_BUCKET).getPublicUrl(path);
   if(!data || !data.publicUrl) return {url:null, error:'No public URL returned'};
@@ -1682,6 +1763,13 @@ async function loadAll(){
   applyFavicon();
   if(sweepCompletedOrders()) save('orders').catch(e=>console.error('archive sweep save failed', e));
   if(sweepClosedComplaints()) save('complaints').catch(e=>console.error('complaint archive sweep save failed', e));
+  if(state.session){
+    sweepExpiredPhotos().then(async (r)=>{
+      if(r.orders) await save('orders');
+      if(r.complaints) await save('complaints');
+      if(r.orders || r.complaints) render();
+    }).catch(e=>console.error('expired photo sweep failed', e));
+  }
   if(state.trackMode && _trackRequestedId){
     const found = byId(state.orders, _trackRequestedId) ||
       state.orders.find(o=>(o.orderNumber||'').toLowerCase()===_trackRequestedId.toLowerCase());
@@ -1705,6 +1793,12 @@ async function loadAll(){
   setInterval(async ()=>{
     if(sweepCompletedOrders()){ await save('orders'); render(); }
     if(sweepClosedComplaints()){ await save('complaints'); render(); }
+    if(state.session){
+      const r = await sweepExpiredPhotos().catch(e=>{ console.error('expired photo sweep failed', e); return {orders:false, complaints:false}; });
+      if(r.orders) await save('orders');
+      if(r.complaints) await save('complaints');
+      if(r.orders || r.complaints) render();
+    }
   }, 30*60*1000);
 }
 async function saveAuth(){ try{ await kvSet('auth', state.auth); }catch(e){ console.error('save auth failed', e); } }
@@ -1982,7 +2076,7 @@ async function createOrder(e){
   let photoError = null;
   if(photoFile){
     const result = await uploadOrderPhoto(order.id, photoFile);
-    if(result.url) order.photo = result.url; else photoError = result.error;
+    if(result.url){ order.photo = result.url; order.photoUploadedAt = new Date().toISOString(); } else photoError = result.error;
   }
   state.orders.unshift(order);
   await save('orders');
@@ -2076,9 +2170,9 @@ async function submitOrderEdit(e){
   let photoError = null;
   if(photoFile){
     const result = await uploadOrderPhoto(o.id, photoFile);
-    if(result.url) o.photo = result.url; else photoError = result.error;
+    if(result.url){ o.photo = result.url; o.photoUploadedAt = new Date().toISOString(); } else photoError = result.error;
   } else if(f.elements['removeOrderPhoto'] && f.elements['removeOrderPhoto'].value==='1'){
-    o.photo = null;
+    o.photo = null; o.photoUploadedAt = null;
   }
   await save('orders'); closeModal();
   showToast(photoError ? `Order updated, but the picture could not be uploaded: ${photoError}` : 'Order updated', photoError?9000:undefined);
@@ -6451,7 +6545,7 @@ function complaintPhotosModal(id){
       <h2>Images</h2>
       <div class="sub">${esc(c.customer)} · ${c.photos.length} image${c.photos.length===1?'':'s'}</div>
       <div class="photo-grid">
-        ${c.photos.map((url,i)=>`<button type="button" class="photo-thumb" data-photo-url="${escAttr(url)}"><img src="${escAttr(url)}" alt="Complaint photo ${i+1}" loading="lazy"></button>`).join('')}
+        ${c.photos.map((p,i)=>{ const url=complaintPhotoUrl(p); return `<button type="button" class="photo-thumb" data-photo-url="${escAttr(url)}"><img src="${escAttr(url)}" alt="Complaint photo ${i+1}" loading="lazy"></button>`; }).join('')}
       </div>
       <div class="modal-actions">
         <button type="button" class="btn" id="btn-cancel-modal">Close</button>
