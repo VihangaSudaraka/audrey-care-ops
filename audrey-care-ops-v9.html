@@ -422,10 +422,11 @@
     .login-mobile-logo{display:block;height:40px;width:auto;margin:0 auto 18px;}
   }
   .stage-badge{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;}
-  .timeline{margin:14px 0;border-left:2px solid var(--border);padding-left:14px;display:flex;flex-direction:column;gap:10px;}
-  .timeline .item{font-size:12.5px;position:relative;}
-  .timeline .item:before{content:'';position:absolute;left:-18.5px;top:4px;width:7px;height:7px;border-radius:50%;background:var(--accent);}
-  .timeline .item .t{color:var(--muted);font-size:11px;}
+  .timeline{margin:14px 0;position:relative;padding-left:28px;display:flex;flex-direction:column;gap:12px;}
+  .timeline:before{content:'';position:absolute;left:7px;top:16px;bottom:16px;width:2px;background:var(--border);}
+  .timeline .item{font-size:13px;position:relative;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 13px;line-height:1.45;box-shadow:0 2px 6px rgba(20,25,20,.05);}
+  .timeline .item:before{content:'';position:absolute;left:-24.5px;top:15px;width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--surface);}
+  .timeline .item .t{color:var(--muted);font-size:11px;margin-top:4px;}
 
   /* ---------------- Recipes / batch timer ---------------- */
   .recipe-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;display:flex;flex-direction:column;gap:8px;}
