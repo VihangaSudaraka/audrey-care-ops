@@ -321,10 +321,16 @@
   /* ---------------- Overlay / Modal ---------------- */
   @keyframes overlay-fade{from{opacity:0;}to{opacity:1;}}
   @keyframes modal-pop{from{opacity:0;transform:scale(.94) translateY(10px);}to{opacity:1;transform:scale(1) translateY(0);}}
-  .overlay{position:fixed;inset:0;background:rgba(20,25,20,.45);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;overflow-y:auto;animation:overlay-fade .18s ease;}
-  .modal{background:#fff;border-radius:12px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;padding:24px;margin:auto;animation:modal-pop .22s cubic-bezier(.16,.84,.44,1);}
-  .admin-broadcast-overlay{position:fixed;inset:0;background:rgba(15,30,20,.65);display:flex;align-items:center;justify-content:center;z-index:600;padding:20px;animation:toast-in .2s ease;}
-  .admin-broadcast-panel{background:#fff;border-radius:16px;width:100%;max-width:560px;max-height:88vh;overflow-y:auto;padding:30px;box-shadow:0 30px 70px rgba(0,0,0,.35);animation:modal-pop .28s cubic-bezier(.16,.84,.44,1);}
+  /* state.modal stays the same string across every re-render while a drawer/modal is open — typing,
+     a dropdown change, a background save, all call render(). Without this, the whole panel gets
+     torn down and rebuilt each time and its entrance animation replays, looking like it pops up
+     again on every edit. .reopen-noanim wraps the panel on any re-render that isn't a fresh open. */
+  .reopen-noanim .overlay, .reopen-noanim .modal, .reopen-noanim .drawer, .reopen-noanim .drawer-overlay,
+  .reopen-noanim .admin-broadcast-overlay, .reopen-noanim .admin-broadcast-panel{ animation: none !important; }
+  .overlay{position:fixed;inset:0;background:rgba(20,25,20,.4);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;overflow-y:auto;animation:overlay-fade .18s ease;}
+  .modal{background:rgba(255,255,255,.78);border:1px solid rgba(255,255,255,.6);border-radius:16px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;padding:24px;margin:auto;box-shadow:0 20px 60px rgba(20,40,25,.18),inset 0 1px 0 rgba(255,255,255,.7);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);animation:modal-pop .22s cubic-bezier(.16,.84,.44,1);}
+  .admin-broadcast-overlay{position:fixed;inset:0;background:rgba(15,30,20,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:600;padding:20px;animation:toast-in .2s ease;}
+  .admin-broadcast-panel{background:rgba(255,255,255,.78);border:1px solid rgba(255,255,255,.6);border-radius:18px;width:100%;max-width:560px;max-height:88vh;overflow-y:auto;padding:30px;box-shadow:0 30px 70px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.7);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);animation:modal-pop .28s cubic-bezier(.16,.84,.44,1);}
   .admin-broadcast-header{display:flex;align-items:center;gap:14px;margin-bottom:18px;}
   .admin-broadcast-icon{font-size:28px;flex-shrink:0;}
   .admin-broadcast-title{font-size:19px;font-weight:700;color:var(--accent-dark);}
@@ -389,13 +395,14 @@
 
   /* ---------------- Login screen ---------------- */
   .login-screen{min-height:100vh;display:flex;align-items:stretch;background:#fff;}
-  .login-illustration{flex:1.1;display:flex;align-items:center;justify-content:center;background:#EAF7EE;padding:40px;min-width:0;overflow:hidden;position:relative;}
-  .login-illustration-logo{width:100%;max-width:300px;height:auto;display:block;position:relative;z-index:1;}
+  .login-illustration{flex:1.1;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#EAF7EE 0%,#D7F0E0 55%,#EAF7EE 100%);padding:40px;min-width:0;overflow:hidden;position:relative;}
+  .login-illustration-logo{width:100%;max-width:300px;height:auto;display:block;position:relative;z-index:1;filter:drop-shadow(0 8px 24px rgba(20,70,42,.18));}
   .login-panel{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 32px;position:relative;overflow:hidden;}
   .login-panel-inner{width:100%;max-width:380px;margin-top:-72px;position:relative;z-index:1;}
   .login-blob{position:absolute;border-radius:50%;filter:blur(60px);pointer-events:none;z-index:0;}
-  .login-illustration .login-blob-1{width:260px;height:260px;background:var(--accent);opacity:.3;top:-70px;left:-60px;animation:blob-drift-1 24s ease-in-out infinite alternate;}
-  .login-illustration .login-blob-2{width:220px;height:220px;background:var(--accent-dark);opacity:.22;bottom:-60px;right:10%;animation:blob-drift-2 28s ease-in-out infinite alternate;}
+  .login-illustration .login-blob-1{width:300px;height:300px;background:var(--accent);opacity:.5;top:-80px;left:-40px;animation:blob-drift-1 24s ease-in-out infinite alternate;}
+  .login-illustration .login-blob-2{width:260px;height:260px;background:var(--accent-dark);opacity:.4;bottom:-40px;right:5%;animation:blob-drift-2 28s ease-in-out infinite alternate;}
+  .login-illustration .login-blob-3{width:220px;height:220px;background:var(--accent-dark);opacity:.28;top:50%;left:30%;animation:blob-drift-3 22s ease-in-out infinite alternate;}
   .login-panel .login-blob-1{width:240px;height:240px;background:var(--accent-soft);opacity:.6;top:-50px;right:-60px;animation:blob-drift-2 26s ease-in-out infinite alternate;}
   .login-panel .login-blob-2{width:200px;height:200px;background:var(--accent);opacity:.18;bottom:-40px;left:-50px;animation:blob-drift-1 30s ease-in-out infinite alternate;}
   .login-panel .login-blob-3{width:160px;height:160px;background:var(--accent-dark);opacity:.14;top:45%;right:8%;animation:blob-drift-3 22s ease-in-out infinite alternate;}
@@ -474,10 +481,12 @@
   .batch-focus .bf-controls .btn-primary:hover{background:#369059;}
   .hint{font-size:11.5px;color:var(--muted);margin-top:4px;}
 
-  .drawer-overlay{position:fixed;inset:0;background:rgba(20,25,20,.35);z-index:110;animation:overlay-fade .2s ease;}
+  .drawer-overlay{position:fixed;inset:0;background:rgba(20,25,20,.3);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:110;animation:overlay-fade .2s ease;}
   .drawer{
     position:fixed;top:0;right:0;bottom:0;width:760px;max-width:94vw;
-    background:#fff;box-shadow:-10px 0 30px rgba(0,0,0,.16);
+    background:rgba(255,255,255,.8);border-left:1px solid rgba(255,255,255,.6);
+    box-shadow:-16px 0 50px rgba(20,40,25,.16),inset 1px 0 0 rgba(255,255,255,.7);
+    backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);
     z-index:120;overflow-y:auto;padding:28px 34px;
     animation:drawer-in .26s cubic-bezier(.2,.8,.3,1);
   }
@@ -565,6 +574,15 @@
   .live-clock-bar .clock-company{font-weight:700;color:var(--ink);letter-spacing:.01em;}
   .live-clock-bar .clock-label{color:var(--accent-dark);font-weight:600;}
   .live-clock-bar .clock-value{font-weight:600;color:var(--ink);}
+
+  /* ---------------- Printable batch sheet ---------------- */
+  @media print{
+    body *{ visibility:hidden; }
+    .batch-sheet-print, .batch-sheet-print *{ visibility:visible; }
+    .batch-sheet-print{ position:absolute; top:0; left:0; width:100%; max-width:100%; box-shadow:none; margin:0; }
+    .overlay{ position:static; background:none; padding:0; }
+    .batch-sheet-print .modal-actions{ display:none; }
+  }
 </style>
 </head>
 <body>
@@ -633,6 +651,11 @@ const supabaseClient = BACKEND_CONFIGURED ? window.supabase.createClient(SUPABAS
 // Leave as 'PASTE_SMS_APP_SECRET' to disable the SMS feature entirely.
 const SMS_APP_SECRET = '6f2c9e7a-4b1d-4a3f-9c8e-1d7b5a2f6e3c-audrey';
 const SMS_CONFIGURED = SMS_APP_SECRET !== 'PASTE_SMS_APP_SECRET';
+// Must match the CITYPAK_APP_SECRET set on the track-citypak Edge Function
+// (supabase/functions/track-citypak). Leave as 'PASTE_CITYPAK_APP_SECRET' to fall back to a plain
+// link to CityPak's own tracking site instead of showing live tracking inline.
+const CITYPAK_APP_SECRET = 'audrey-citypak-7f3a9c1e-8b42';
+const CITYPAK_CONFIGURED = CITYPAK_APP_SECRET !== 'PASTE_CITYPAK_APP_SECRET';
 
 const SYNCED_KEYS = ['orders','staff','customers','suppliers','complaints','chat','templates','recipes','activeBatch','gmpChecklistEntries','blendBatches','branding','navOrder','deliveryLines','staffCategories','theme','smsTemplates','orderSettings','smsCampaigns','complaintCategories','complaintPriorities','bulkSmsTemplates','navLabels'];
 const DEFAULT_ORDER_SETTINGS = {smsAutoSend:true, dragEnabled:false};
@@ -644,7 +667,13 @@ async function kvGet(key){
   if(error){ console.error('kvGet '+key, error); return null; }
   return data ? data.value : null;
 }
+// Timestamp of the last time WE wrote each key, so the realtime handler can recognize its own
+// echo coming back even in the rare case the content-equality check below misses it (e.g. a
+// save() retry re-sends the same value with a new updated_at, or some other subtle mismatch) —
+// see the "recentlySavedByUs" guard where this is read.
+let _recentSaveAt = {};
 async function kvSet(key, value){
+  _recentSaveAt[key] = Date.now();
   const { error } = await supabaseClient.from('app_data').upsert({ key, value, updated_at: new Date().toISOString() });
   if(error){ console.error('kvSet '+key, error); return false; }
   return true;
@@ -678,6 +707,64 @@ async function sendSms(recipient, message){
 }
 function orderTrackLink(id){
   return location.origin + location.pathname + '#track/' + encodeURIComponent(id);
+}
+/* Fetches live delivery tracking for a CityPak tracking number via the track-citypak Edge
+   Function (which holds the real CityPak API key — customers' browsers never see it).
+   Returns {ok:true, data} or {ok:false, error}. Never throws. */
+async function fetchCitypakTracking(trackingNumber){
+  if(!CITYPAK_CONFIGURED) return { ok:false, error:'Live tracking is not set up yet.' };
+  if(!trackingNumber) return { ok:false, error:'No CityPak tracking number on this order.' };
+  try{
+    const res = await fetch(SUPABASE_URL + '/functions/v1/track-citypak?tracking_number=' + encodeURIComponent(trackingNumber), {
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+        'x-citypak-secret': CITYPAK_APP_SECRET
+      }
+    });
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok || !data.ok){
+      const base = (data && data.error) || ('CityPak tracking error ('+res.status+')');
+      return { ok:false, error: base };
+    }
+    return { ok:true, data: data.data };
+  }catch(e){
+    return { ok:false, error: 'Could not reach the tracking service.' };
+  }
+}
+// Fetches (once) and caches a CityPak tracking number's live status, then re-renders the
+// public track page to show it. Safe to call on every render — it only fetches the first time.
+async function ensureCitypakTracking(trackingNumber){
+  if(!state._citypakTracking) state._citypakTracking = {};
+  if(state._citypakTracking[trackingNumber]) return;
+  state._citypakTracking[trackingNumber] = {loading:true};
+  const result = await fetchCitypakTracking(trackingNumber);
+  state._citypakTracking[trackingNumber] = result;
+  if(state.trackMode) render();
+}
+function renderCitypakTrackingBlock(trackingNumber){
+  const fallbackLink = `<div style="text-align:center;margin-top:10px;"><a href="${CITYPAK_TRACK_URL}" target="_blank" rel="noopener" class="btn btn-sm" style="text-decoration:none;display:inline-block;">Track with CityPak →</a></div>`;
+  if(!CITYPAK_CONFIGURED) return fallbackLink;
+  const cached = state._citypakTracking && state._citypakTracking[trackingNumber];
+  if(!cached || cached.loading){
+    return `<div class="hint" style="text-align:center;margin-top:14px;">Loading delivery tracking…</div>`;
+  }
+  if(!cached.ok){
+    return `<div style="text-align:center;margin-top:10px;">
+      <div class="hint" style="color:var(--danger);margin-bottom:8px;">${esc(cached.error||'Could not load delivery tracking right now.')}</div>
+      ${fallbackLink}
+    </div>`;
+  }
+  const d = cached.data || {};
+  const history = (d.tracking_history||[]).slice().reverse();
+  if(!history.length) return fallbackLink;
+  return `
+  <div class="field" style="margin-top:18px;">
+    <label style="text-align:center;display:block;">Delivery tracking${d.is_delivered ? ' — delivered' : ''}</label>
+    <div class="timeline">
+      ${history.map(h=>`<div class="item">${esc(h.status_type||'')}${h.location?' · '+esc(h.location):''}${h.description?' — '+esc(h.description):''}<div class="t">${esc(h.date||'')} ${esc(h.time||'')}</div></div>`).join('')}
+    </div>
+  </div>`;
 }
 async function sendBulkSms(){
   if(!isAdmin() || !SMS_CONFIGURED) return;
@@ -864,17 +951,20 @@ function subscribeRealtime(){
       const k = row.key;
       // Supabase echoes our own writes back through this same subscription. Re-rendering on an
       // echo that didn't actually change anything tears down and rebuilds the whole shell for no
-      // reason — most visibly, it restarts the toast's pop-in animation, making it look like it
-      // flashed twice. Skip the no-op case; still applies (and renders) any value that differs,
-      // whether it's a genuine external change or our own edited value coming back.
+      // reason — most visibly, it restarts the toast's pop-in animation and every panel's
+      // entrance animation, making everything look like it popped up twice. Skip the no-op case
+      // via a content check, backed up by a short time-based cooldown for the rare case a save()
+      // retry (same value, new updated_at) or some other subtle round-trip mismatch slips past
+      // the content check — still applies (and renders) any value that genuinely differs.
+      const recentlySavedByUs = (key)=> (Date.now() - (_recentSaveAt[key]||0)) < 2500;
       if(k==='auth'){
         const incoming = payload.new ? payload.new.value : null;
-        if(stableStringify(state.auth)===stableStringify(incoming)) return;
+        if(stableStringify(state.auth)===stableStringify(incoming) || recentlySavedByUs(k)) return;
         state.auth = incoming; render(); return;
       }
       if(SYNCED_KEYS.includes(k)){
         const incoming = payload.new ? payload.new.value : (k==='activeBatch' ? null : (k==='branding' ? {addons:[]} : (k==='navOrder' ? {} : (k==='navLabels' ? {} : (k==='theme' ? {paletteId:'green'} : (k==='smsTemplates' ? {...DEFAULT_SMS_TEMPLATES} : (k==='orderSettings' ? {...DEFAULT_ORDER_SETTINGS} : [])))))));
-        if(stableStringify(state[k])===stableStringify(incoming)) return;
+        if(stableStringify(state[k])===stableStringify(incoming) || recentlySavedByUs(k)) return;
         const prevChatLen = (k==='chat' && Array.isArray(state.chat)) ? state.chat.length : null;
         const prevComplaintsById = (k==='complaints' && Array.isArray(state.complaints)) ? new Map(state.complaints.map(c=>[c.id,c])) : null;
         state[k] = incoming;
@@ -1042,7 +1132,7 @@ const DEFAULT_AUTH = {
 const ROLES = ['Admin','Sub Admin','Blending','Packing','Customer Care','Orders Process'];
 const ASSIGNEE_TEAMS = ['Packing','Blending'];
 const ROLE_PAGES = {
-  Admin: ['dashboard','orders','orderinquiry','blending','recipes','customers','suppliers','complaints','gmp','staff','chat','bulksms','settings'],
+  Admin: ['dashboard','orders','orderinquiry','blending','recipes','customers','suppliers','complaints','gmp','staff','chat','bulksms','ratings','settings'],
   'Sub Admin': ['orders','blending','customers','complaints'],
   Blending: ['blending','chat','recipes'],
   Packing: ['orders','chat'],
@@ -1408,7 +1498,8 @@ const ICONS = {
   bot:'<rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 8V4"/><circle cx="12" cy="3" r="1.2" fill="currentColor" stroke="none"/><circle cx="9" cy="14" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="14" r="1.3" fill="currentColor" stroke="none"/><path d="M9 17.5h6"/><path d="M2 12v3"/><path d="M22 12v3"/>',
   send:'<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/>',
   chevron:'<path d="M9 6l6 6-6 6"/>',
-  search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.8-4.8"/>'
+  search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.8-4.8"/>',
+  star:'<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z"/>'
 };
 function icon(name){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>`; }
 const TRACK_STAGE_PATHS = [
@@ -1524,6 +1615,30 @@ async function loadAll(){
   if(!Array.isArray(state.complaintPriorities) || state.complaintPriorities.length===0){
     state.complaintPriorities = [...DEFAULT_COMPLAINT_PRIORITIES];
     kvSet('complaintPriorities', state.complaintPriorities).catch(e=>console.error('seed complaintPriorities failed', e));
+  }
+  if(!Array.isArray(state.recipes)) state.recipes = [];
+  if(!state.recipes.some(r=>r.name==='Body Lotion - Hotel Range')){
+    const mat = (name, percent) => ({id:uid('MAT'), name, percent});
+    state.recipes.unshift({
+      id: uid('RCP'), name: 'Body Lotion - Hotel Range', description: '',
+      batchSizeKg: 150, standardPH: '5.5 - 6.5',
+      combineNote: 'White Oil, Palm Oil, Stearic Acid, Cetyl Alcohol, Cetareth 20, GMS 40, BHT, EGDS',
+      materials: [
+        mat('DI water', 92.4), mat('Stearic Acid', 4), mat('Cetyl Alcohol', 0.4), mat('Cetareth 20', 0.5),
+        mat('Refined Glycerin 99.5% USP', 0.2), mat('GMS 40', 1), mat('BHT (Butylated Hydroxy Toluene)', 0.1),
+        mat('Di sodium EDTA', 0.1), mat('Phenoxyethanol', 0.5), mat('Fragrance', 0.5), mat('EGDS', 0.4),
+        mat('White oil', 0.8), mat('Carbomer 940', 0.2), mat('KOH', 0.3), mat('P. Oil', 0.5), mat('Citric Acid', 0.1)
+      ],
+      steps: [
+        {id:uid('STEP'), ingredient:'Carbomer + H2O', amount:'80kg', waitMinutes:0},
+        {id:uid('STEP'), ingredient:'Water + EDTA + Glycerin', amount:'5kg', waitMinutes:0},
+        {id:uid('STEP'), ingredient:'Oil pot — melt and combine the oil-phase materials', amount:'', waitMinutes:0},
+        {id:uid('STEP'), ingredient:'Water + KOH', amount:'5kg', waitMinutes:0},
+        {id:uid('STEP'), ingredient:'Citric Acid + H2O', amount:'500g', waitMinutes:0}
+      ],
+      createdAt: new Date().toISOString()
+    });
+    kvSet('recipes', state.recipes).catch(e=>console.error('seed Body Lotion recipe failed', e));
   }
   if(!Array.isArray(state.staff)) state.staff = [];
   {
@@ -2756,11 +2871,65 @@ function askAiSuggestion(text){
 }
 
 /* ===================== Render root ===================== */
+// render() tears the whole page down and rebuilds it from `state` on every call — including
+// when a realtime update from someone ELSE's login comes in while you're mid-typing into a
+// field that hasn't been saved yet (a new customer's name, a chat draft, a search box...).
+// That field isn't in `state` at all yet, so the rebuild would silently wipe out whatever
+// you'd typed and drop your cursor focus. Capture it beforehand and put it straight back
+// afterward so a background update from another session never costs you unsaved typing.
+function captureFocusedInput(){
+  const el = document.activeElement;
+  if(!el) return null;
+  const tag = el.tagName;
+  if(tag!=='INPUT' && tag!=='TEXTAREA' && tag!=='SELECT') return null;
+  // Most form fields in this app are identified by a `name` (read via FormData at submit time)
+  // rather than an `id` — scope by the enclosing form's id too so the same field name reused
+  // across different forms/modals doesn't get cross-matched.
+  let selector = null;
+  if(el.id){
+    selector = '#'+CSS.escape(el.id);
+  } else if(el.name){
+    const form = el.closest('form');
+    selector = (form && form.id ? '#'+CSS.escape(form.id)+' ' : '') + '[name="'+CSS.escape(el.name)+'"]';
+  }
+  if(!selector) return null;
+  const snapshot = {selector, value: el.value};
+  if(typeof el.selectionStart==='number'){
+    snapshot.selectionStart = el.selectionStart;
+    snapshot.selectionEnd = el.selectionEnd;
+  }
+  return snapshot;
+}
+function restoreFocusedInput(snapshot){
+  if(!snapshot) return;
+  let el;
+  try{ el = document.querySelector(snapshot.selector); }catch(e){ return; }
+  if(!el) return;
+  const tag = el.tagName;
+  if(tag!=='INPUT' && tag!=='TEXTAREA' && tag!=='SELECT') return;
+  el.value = snapshot.value;
+  el.focus();
+  if(typeof snapshot.selectionStart==='number' && typeof el.setSelectionRange==='function'){
+    try{ el.setSelectionRange(snapshot.selectionStart, snapshot.selectionEnd); }catch(e){}
+  }
+}
 // Tracks which page last had its entrance animation played, so cards/stat boxes only
 // fade+slide in on an actual navigation — not on every re-render a keystroke or realtime
 // update triggers while staying on the same page.
 let _lastEnterPage = null;
+// Same idea for the order/blend/etc. drawer and the admin broadcast panel: state.modal stays the
+// same string (e.g. 'order:XYZ') across every re-render that happens WHILE it's open — typing in
+// a field, changing a dropdown, a background save, a realtime update, all call render() — so
+// without this, the modal's pop-in animation replayed on every single one of those, looking like
+// the panel kept popping up again ("double show") every time something was edited or saved.
+let _lastOpenModal = null;
+let _lastAdminBroadcastId = null;
 function render(){
+  const focusSnapshot = captureFocusedInput();
+  renderInner();
+  restoreFocusedInput(focusSnapshot);
+}
+function renderInner(){
   const app = document.getElementById('app');
   if(!state.loaded){ app.innerHTML = `<div class="center-screen"><div class="hint">Loading Audrey Care operations…</div></div>`; return; }
   if(state.backendMissing){ app.innerHTML = renderBackendSetupScreen(); return; }
@@ -2842,16 +3011,79 @@ function renderTrackResult(o){
       </div>`;
     }).join('')}
   </div>
-  <div class="hint" style="text-align:center;margin:16px 0 0;font-size:13px;">
-    ${stage>=STAGES.length-1 ? '🎉 Picked up by delivery — thank you!' : `Currently: <strong style="color:var(--ink);">${STAGES[stage]}</strong>`}
-  </div>
+  ${stage<STAGES.length-1 ? `<div class="hint" style="text-align:center;margin:16px 0 0;font-size:13px;">Currently: <strong style="color:var(--ink);">${STAGES[stage]}</strong></div>` : ''}
   ${o.courierService && stage>=3 ? `<div class="hint" style="text-align:center;margin-top:6px;">Courier: ${esc(o.courierService)}${o.courierNumber?(' · '+esc(o.courierNumber)):''}</div>` : ''}
-  ${o.courierService==='CityPak' && o.courierNumber && stage>=3 ? `<div style="text-align:center;margin-top:10px;"><a href="${CITYPAK_TRACK_URL}" target="_blank" rel="noopener" class="btn btn-primary" style="text-decoration:none;display:inline-block;">Track with CityPak →</a></div>` : ''}
+  ${stage>=3 ? renderRatingBlock(o) : ''}
+  ${o.courierService==='CityPak' && o.courierNumber && stage>=3 ? renderCitypakTrackingBlock(o.courierNumber) : ''}
+  <div style="text-align:center;margin-top:16px;">
+    <a href="tel:0776979959" class="btn btn-sm" style="text-decoration:none;display:inline-block;">Hotline: 077 697 9959</a>
+  </div>
   `;
+}
+function renderRatingBlock(o){
+  if(o.customerRating){
+    return `<div class="field" style="margin:16px 0 0;">
+      <label style="text-align:center;display:block;">Thanks for rating us!</label>
+      <div style="text-align:center;font-size:26px;letter-spacing:4px;color:#D4A017;">${'★'.repeat(o.customerRating)}${'☆'.repeat(5-o.customerRating)}</div>
+    </div>`;
+  }
+  const draft = state._ratingFeedbackDraft;
+  if(draft && draft.orderId===o.id){
+    return `<div class="field" style="margin:16px 0 0;">
+      <label style="text-align:center;display:block;">Rate us</label>
+      <div style="text-align:center;font-size:30px;letter-spacing:6px;color:#D4A017;">${'★'.repeat(draft.value)}${'☆'.repeat(5-draft.value)}</div>
+      <form id="form-rating-feedback">
+        ${draft.value<=3 ? `<textarea name="feedback" placeholder="What went wrong? (optional)" style="min-height:70px;margin-top:8px;"></textarea>` : ''}
+        <div style="display:flex;justify-content:center;gap:10px;margin-top:8px;">
+          <button type="button" class="btn btn-sm" id="btn-rating-feedback-back">← Choose again</button>
+          <button type="submit" class="btn btn-primary btn-sm">Submit</button>
+        </div>
+      </form>
+    </div>`;
+  }
+  return `<div class="field" style="margin:16px 0 0;">
+    <label style="text-align:center;display:block;">Rate us</label>
+    <div class="rate-stars" data-order-id="${o.id}" style="text-align:center;font-size:30px;letter-spacing:6px;color:#D4A017;">
+      ${[1,2,3,4,5].map(n=>`<span class="rate-star" data-rate-value="${n}" style="cursor:pointer;">☆</span>`).join('')}
+    </div>
+  </div>`;
+}
+async function submitCustomerRating(orderId, value, feedback){
+  const o = byId(state.orders, orderId);
+  if(!o || o.customerRating) return;
+  o.customerRating = value;
+  o.customerRatingAt = new Date().toISOString();
+  if(feedback) o.customerRatingFeedback = feedback;
+  await save('orders');
+  render();
 }
 function attachTrackHandlers(){
   const el = id=>document.getElementById(id);
   if(el('form-track')) el('form-track').addEventListener('submit', submitTrack);
+  const o = state.trackedOrderId ? byId(state.orders, state.trackedOrderId) : null;
+  if(o && o.courierService==='CityPak' && o.courierNumber && o.stage>=3 && CITYPAK_CONFIGURED){
+    ensureCitypakTracking(o.courierNumber);
+  }
+  document.querySelectorAll('.rate-stars').forEach(wrap=>{
+    const stars = [...wrap.querySelectorAll('.rate-star')];
+    stars.forEach((star, idx)=>{
+      star.addEventListener('mouseenter', ()=>{ stars.forEach((s,i)=>{ s.textContent = i<=idx ? '★' : '☆'; }); });
+      star.addEventListener('click', ()=>{
+        state._ratingFeedbackDraft = {orderId: wrap.dataset.orderId, value: idx+1};
+        render();
+      });
+    });
+    wrap.addEventListener('mouseleave', ()=>{ stars.forEach(s=>{ s.textContent='☆'; }); });
+  });
+  if(el('form-rating-feedback')) el('form-rating-feedback').addEventListener('submit', e=>{
+    e.preventDefault();
+    const draft = state._ratingFeedbackDraft;
+    if(!draft) return;
+    const feedback = e.target.feedback ? (e.target.feedback.value||'').trim() : '';
+    state._ratingFeedbackDraft = null;
+    submitCustomerRating(draft.orderId, draft.value, feedback);
+  });
+  if(el('btn-rating-feedback-back')) el('btn-rating-feedback-back').addEventListener('click', ()=>{ state._ratingFeedbackDraft = null; render(); });
 }
 
 /* ===================== Customer complaint form ===================== */
@@ -3027,6 +3259,7 @@ function renderLogin(){
     <div class="login-illustration">
       <div class="login-blob login-blob-1"></div>
       <div class="login-blob login-blob-2"></div>
+      <div class="login-blob login-blob-3"></div>
       <img src="${currentLogo()}" alt="Audrey" class="login-illustration-logo">
     </div>
     <div class="login-panel">
@@ -3140,6 +3373,7 @@ const NAV = [
   ]},
   {group:'Other', items:[
     {id:'bulksms', label:'Bulk SMS', icon:'send'},
+    {id:'ratings', label:'Customer ratings', icon:'star'},
     {id:'settings', label:'Settings', icon:'settings'},
   ]},
 ];
@@ -3202,6 +3436,7 @@ const PAGE_META = {
   staff:{title:'Staff', sub:'People working across the pipeline.'},
   chat:{title:'Team chat', sub:'Message everyone signed in to the workspace.'},
   bulksms:{title:'Bulk SMS', sub:'Send one message to a list of customers at once.'},
+  ratings:{title:'Customer ratings', sub:'What customers said about their delivery experience.'},
   settings:{title:'Settings', sub:'Workspace access, and task templates.'},
 };
 
@@ -3211,6 +3446,11 @@ function renderShell(freshPage){
   const navGroups = navGroupsFor(allowed);
   const justLoggedIn = !!state._justLoggedIn;
   state._justLoggedIn = false;
+  const freshModal = state.modal !== _lastOpenModal;
+  _lastOpenModal = state.modal;
+  const broadcastId = state.adminBroadcast ? state.adminBroadcast.id : null;
+  const freshBroadcast = broadcastId !== _lastAdminBroadcastId;
+  _lastAdminBroadcastId = broadcastId;
   return `
   <div class="shell ${justLoggedIn?'shell-enter':''}">
     <aside class="sidebar ${state.sidebarOpen?'open':''}">
@@ -3276,12 +3516,12 @@ function renderShell(freshPage){
     <span class="clock-label">Time :</span> <span class="clock-value" id="live-clock-time">${formatClockTime(new Date())}</span>
     <span class="clock-label">Version 4.0</span>
   </div>
-  ${state.modal ? renderModal() : ''}
+  ${state.modal ? `<div class="${freshModal?'':'reopen-noanim'}">${renderModal()}</div>` : ''}
   ${state.toast ? renderToast() : ''}
   ${state.chatNotice ? renderChatNotice() : ''}
   ${state.complaintNotice ? renderComplaintNotice() : ''}
   ${(state.batchFocusMode && state.activeBatch) ? renderBatchFocusOverlay() : ''}
-  ${state.adminBroadcast ? renderAdminBroadcastPanel() : ''}
+  ${state.adminBroadcast ? `<div class="${freshBroadcast?'':'reopen-noanim'}">${renderAdminBroadcastPanel()}</div>` : ''}
   `;
 }
 function renderChatNotice(){
@@ -3347,6 +3587,7 @@ function renderPage(){
     case 'staff': return renderStaffPage();
     case 'chat': return renderChatPage();
     case 'bulksms': return renderBulkSmsPage();
+    case 'ratings': return renderRatingsPage();
     case 'settings': return renderSettingsPage();
     default: return '';
   }
@@ -3546,7 +3787,10 @@ function renderOrderInquiryPage(){
           <span class="lr-avatar empty">${initials(o.customer||'?')}</span>
           <span class="lr-name">${esc(o.customer)}</span>
         </span>
-        <span style="display:flex;gap:8px;">
+        <span style="display:flex;gap:8px;align-items:center;">
+          ${o.deliveryOutcome
+            ? `<span class="pill ${o.deliveryOutcome==='Delivered'?'pill-active':'pill-high'}" style="cursor:pointer;" data-open-delivery-outcome="${o.id}" onclick="event.stopPropagation()" title="Click to change">${o.deliveryOutcome}</span>`
+            : `<button type="button" class="btn btn-sm" data-open-delivery-outcome="${o.id}" onclick="event.stopPropagation()">Delivery status</button>`}
           <button type="button" class="btn btn-sm" data-review-fb="${o.id}" ${fbLocked?'disabled title="Already sent — only Admin can send it again."':''} onclick="event.stopPropagation()">${fbSent?'FB review sent ✓':'Send FB review link'}</button>
           <button type="button" class="btn btn-sm" data-review-google="${o.id}" ${googleLocked?'disabled title="Already sent — only Admin can send it again."':''} onclick="event.stopPropagation()">${googleSent?'Google review sent ✓':'Send Google review'}</button>
         </span>
@@ -4420,6 +4664,33 @@ function manageBulkSmsTemplatesModal(){
     </div>
   </div>`;
 }
+/* ===================== Customer ratings page ===================== */
+function renderRatingsPage(){
+  const rated = state.orders.filter(o=>o.customerRating).slice().sort((a,b)=>new Date(b.customerRatingAt||0)-new Date(a.customerRatingAt||0));
+  const avg = rated.length ? (rated.reduce((sum,o)=>sum+o.customerRating,0)/rated.length) : 0;
+  return `
+  <div class="stat-grid">
+    <div class="stat-card"><div class="label">Ratings received</div><div class="value">${rated.length}</div></div>
+    <div class="stat-card"><div class="label">Average rating</div><div class="value accent">${rated.length?avg.toFixed(1)+' ★':'—'}</div></div>
+  </div>
+  <div class="panel">
+    ${rated.length===0 ? `<div class="empty-state">No ratings yet — they'll show up here once customers rate their delivery on the track order page.</div>` : `
+    <table class="data-table">
+      <thead><tr><th>Customer name</th><th>Phone number</th><th>Order number</th><th>Rating</th><th>Feedback</th></tr></thead>
+      <tbody>
+        ${rated.map(o=>`
+        <tr>
+          <td>${esc(o.customer)}</td>
+          <td>${esc(o.phone)||'—'}</td>
+          <td>${esc(o.orderNumber||o.id)}</td>
+          <td>${'★'.repeat(o.customerRating)}${'☆'.repeat(5-o.customerRating)}</td>
+          <td>${o.customerRatingFeedback ? esc(o.customerRatingFeedback) : '—'}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`}
+  </div>
+  `;
+}
 function renderSettingsPage(){
   return `
   <div class="panel">
@@ -4564,28 +4835,6 @@ function renderSettingsPage(){
         </div>
         <div class="modal-actions" style="justify-content:flex-start;margin-top:14px;">
           <button type="submit" class="btn btn-primary">Save sound</button>
-        </div>
-      </form>
-    </div>
-  </div>` : ''}
-
-  ${isAdmin() ? `
-  <div class="panel">
-    <div class="panel-head"><h3>Login passwords</h3></div>
-    <div class="panel-body">
-      <div class="hint" style="margin-bottom:12px;">Sub Admin, Blending and Packing sign in with just the shared password below. Admin and Customer Care sign in by picking their name and entering their own password instead (manage those below, under "Team logins"), so the two fields marked "fallback" here only come into play if every named login for that role is removed. Orders Process has no password; it opens the public customer orders board directly.</div>
-      <form id="form-passwords">
-        <div class="field-row">
-          <div class="field"><label>Admin password <span class="hint">(fallback)</span></label><input name="adminPassword" value="${esc(state.auth.adminPassword)}"></div>
-          <div class="field"><label>Sub Admin password</label><input name="subAdminPassword" value="${esc(state.auth.subAdminPassword)}"></div>
-          <div class="field"><label>Blending password</label><input name="blendingPassword" value="${esc(state.auth.blendingPassword)}"></div>
-        </div>
-        <div class="field-row">
-          <div class="field"><label>Packing password</label><input name="packingPassword" value="${esc(state.auth.packingPassword)}"></div>
-          <div class="field"><label>Customer Care password <span class="hint">(fallback)</span></label><input name="customerCarePassword" value="${esc(state.auth.customerCarePassword)}"></div>
-        </div>
-        <div class="modal-actions" style="justify-content:flex-start;">
-          <button type="submit" class="btn btn-primary">Save passwords</button>
         </div>
       </form>
     </div>
@@ -4902,10 +5151,18 @@ function stopBatchTicker(){ if(state._batchTicker){ clearInterval(state._batchTi
 
 // ---- Recipe CRUD ----
 function newStepDraft(){ return {id:uid('STEP'), ingredient:'', amount:'', waitMinutes:0}; }
+function newMaterialDraft(){ return {id:uid('MAT'), name:'', percent:0}; }
+// Percentage-of-batch-weight formulation, e.g. { percent: 4 } on an 150kg batch needs 6kg.
+// This is how the factory's real batch sheets are written, so a recipe's raw materials scale to
+// any batch size instead of being locked to one fixed absolute weight.
+function recipeMaterialAmount(percent, batchSizeKg){ return (Number(percent)||0)/100 * (Number(batchSizeKg)||0); }
+function recipeMaterialsTotalPercent(materials){ return (materials||[]).reduce((sum,m)=>sum+(Number(m.percent)||0), 0); }
 function openRecipeModal(id){
   const r = id ? byId(state.recipes, id) : null;
-  state._recipeDraft = r ? {id:r.id, name:r.name, description:r.description||'', steps: r.steps.map(s=>({...s}))}
-                          : {id:null, name:'', description:'', steps:[newStepDraft()]};
+  state._recipeDraft = r
+    ? {id:r.id, name:r.name, description:r.description||'', batchSizeKg:r.batchSizeKg||'', standardPH:r.standardPH||'', combineNote:r.combineNote||'',
+       materials: (r.materials||[]).map(m=>({...m})), steps: r.steps.map(s=>({...s}))}
+    : {id:null, name:'', description:'', batchSizeKg:'', standardPH:'', combineNote:'', materials:[newMaterialDraft()], steps:[newStepDraft()]};
   openModal('recipe:'+(id||'new'));
 }
 function draftAddStep(){ state._recipeDraft.steps.push(newStepDraft()); render(); }
@@ -4922,6 +5179,19 @@ function draftMoveStep(stepId, dir){
   [steps[i], steps[j]] = [steps[j], steps[i]];
   render();
 }
+function syncDraftTopFieldsFromDOM(){
+  // pull the recipe-level fields (outside the step/material lists) into the draft before any
+  // add/remove/reorder re-renders the form — otherwise those inputs reset to the draft's stale
+  // value and whatever was typed in Recipe name, Batch size, etc. gets silently wiped.
+  const d = state._recipeDraft;
+  const form = document.getElementById('form-recipe');
+  if(!form) return;
+  if(form.name) d.name = form.name.value;
+  if(form.description) d.description = form.description.value;
+  if(form.batchSizeKg) d.batchSizeKg = form.batchSizeKg.value;
+  if(form.standardPH) d.standardPH = form.standardPH.value;
+  if(form.combineNote) d.combineNote = form.combineNote.value;
+}
 function syncDraftStepFieldsFromDOM(){
   // pull current input values into the draft before add/remove/reorder/submit, so nothing typed is lost
   const steps = state._recipeDraft.steps;
@@ -4934,19 +5204,70 @@ function syncDraftStepFieldsFromDOM(){
     if(wait) s.waitMinutes = parseFloat(wait.value)||0;
   });
 }
+function draftAddMaterial(){ state._recipeDraft.materials.push(newMaterialDraft()); render(); }
+function draftRemoveMaterial(matId){
+  if(state._recipeDraft.materials.length<=1) return;
+  state._recipeDraft.materials = state._recipeDraft.materials.filter(m=>m.id!==matId);
+  render();
+}
+function draftMoveMaterial(matId, dir){
+  const materials = state._recipeDraft.materials;
+  const i = materials.findIndex(m=>m.id===matId);
+  const j = i+dir;
+  if(j<0 || j>=materials.length) return;
+  [materials[i], materials[j]] = [materials[j], materials[i]];
+  render();
+}
+function syncDraftMaterialFieldsFromDOM(){
+  const materials = state._recipeDraft.materials;
+  materials.forEach(m=>{
+    const name = document.getElementById('mat-name-'+m.id);
+    const pct = document.getElementById('mat-pct-'+m.id);
+    if(name) m.name = name.value;
+    if(pct) m.percent = parseFloat(pct.value)||0;
+  });
+}
+// Live-updates one material row's calculated amount, and the running total%, as you type —
+// without a full render() (which would drop focus mid-keystroke).
+function updateMaterialAmountPreview(matId){
+  syncDraftMaterialFieldsFromDOM();
+  updateAllMaterialAmountPreviews();
+}
+function updateAllMaterialAmountPreviews(){
+  const batchSizeKgEl = document.querySelector('[name=batchSizeKg]');
+  const batchSizeKg = parseFloat(batchSizeKgEl && batchSizeKgEl.value)||0;
+  (state._recipeDraft.materials||[]).forEach(m=>{
+    const amtEl = document.getElementById('mat-amt-'+m.id);
+    if(amtEl) amtEl.textContent = recipeMaterialAmount(m.percent, batchSizeKg).toFixed(3);
+  });
+  const totalEl = document.getElementById('mat-total-pct');
+  if(totalEl) totalEl.textContent = recipeMaterialsTotalPercent(state._recipeDraft.materials).toFixed(3)+'%';
+}
 async function submitRecipe(e){
   e.preventDefault();
   const f = e.target;
   syncDraftStepFieldsFromDOM();
+  syncDraftMaterialFieldsFromDOM();
   const steps = state._recipeDraft.steps
     .map(s=>({id:s.id, ingredient:(s.ingredient||'').trim(), amount:(s.amount||'').trim(), waitMinutes: Math.max(0, s.waitMinutes||0)}))
     .filter(s=>s.ingredient);
+  const materials = state._recipeDraft.materials
+    .map(m=>({id:m.id, name:(m.name||'').trim(), percent: Math.max(0, Number(m.percent)||0)}))
+    .filter(m=>m.name);
   if(!f.name.value.trim() || steps.length===0){ showToast('Add a name and at least one step'); return; }
+  const fields = {
+    name: f.name.value.trim(),
+    description: f.description.value.trim(),
+    batchSizeKg: Math.max(0, parseFloat(f.batchSizeKg.value)||0),
+    standardPH: f.standardPH.value.trim(),
+    combineNote: f.combineNote.value.trim(),
+    materials, steps
+  };
   if(state._recipeDraft.id){
     const r = byId(state.recipes, state._recipeDraft.id);
-    Object.assign(r, {name:f.name.value.trim(), description:f.description.value.trim(), steps});
+    Object.assign(r, fields);
   }else{
-    state.recipes.unshift({id:uid('RCP'), name:f.name.value.trim(), description:f.description.value.trim(), steps, createdAt:new Date().toISOString()});
+    state.recipes.unshift({id:uid('RCP'), ...fields, createdAt:new Date().toISOString()});
   }
   await save('recipes'); state._recipeDraft = null; closeModal();
   showToast('Recipe saved');
@@ -5069,13 +5390,17 @@ function renderRecipesPage(){
   <div class="recipe-grid">
     ${state.recipes.map(r=>{
       const totalMin = r.steps.reduce((sum,s)=>sum+(s.waitMinutes||0),0);
+      const matCount = (r.materials||[]).length;
+      const totalPct = recipeMaterialsTotalPercent(r.materials);
       return `
       <div class="recipe-card">
         <div class="rc-title">${esc(r.name)}</div>
         ${r.description ? `<div class="rc-meta">${esc(r.description)}</div>` : ''}
-        <div class="rc-meta">${r.steps.length} step${r.steps.length===1?'':'s'} · ~${totalMin} min total</div>
+        ${matCount ? `<div class="rc-meta">${matCount} raw material${matCount===1?'':'s'} · ${totalPct.toFixed(1)}%${r.batchSizeKg?(' · ref. '+r.batchSizeKg+'kg batch'):''}</div>` : ''}
+        <div class="rc-meta">${r.steps.length} step${r.steps.length===1?'':'s'} · ~${totalMin} min total${r.standardPH?(' · pH '+esc(r.standardPH)):''}</div>
         <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
           ${canManageBlendBoard() ? `<button class="btn btn-primary btn-sm" data-start-batch="${r.id}" ${state.activeBatch?'disabled':''}>${state.activeBatch?'Batch running':'Start batch'}</button>` : ''}
+          ${matCount ? `<button class="btn btn-sm" data-view-batchsheet="${r.id}">📋 Batch sheet</button>` : ''}
           ${isAdmin() ? `<button class="btn btn-sm" data-edit-recipe="${r.id}">Edit</button>` : ''}
           ${isAdmin() ? `<button class="btn btn-sm btn-danger" data-delete-recipe="${r.id}">Delete</button>` : ''}
         </div>
@@ -5182,23 +5507,55 @@ function startBatchModal(recipeId){
 }
 function recipeFormModal(){
   const d = state._recipeDraft;
+  const totalPct = recipeMaterialsTotalPercent(d.materials);
   return `
   <div class="overlay" id="overlay">
-    <div class="modal" style="max-width:620px;">
+    <div class="modal" style="max-width:720px;">
       <h2>${d.id?'Edit recipe':'New recipe'}</h2>
-      <div class="sub">Lay out each ingredient in order, with how long to wait before the next one.</div>
+      <div class="sub">The full batch sheet — raw material formulation, then the mixing steps.</div>
       <form id="form-recipe">
-        <div class="field"><label>Recipe name</label><input name="name" required value="${esc(d.name)}" placeholder="e.g. Shampoo Batch 250kg"></div>
+        <div class="field-row">
+          <div class="field"><label>Recipe / product name</label><input name="name" required value="${esc(d.name)}" placeholder="e.g. Body Lotion - Hotel Range"></div>
+          <div class="field"><label>Reference batch size (kg)</label><input name="batchSizeKg" type="number" min="0" step="0.1" value="${d.batchSizeKg}" placeholder="e.g. 150" oninput="updateAllMaterialAmountPreviews()"></div>
+        </div>
         <div class="field"><label>Description (optional)</label><input name="description" value="${esc(d.description)}" placeholder="Notes for the blending team"></div>
 
-        <div class="hint" style="font-weight:600;color:var(--ink);margin:14px 0 8px;">Steps</div>
+        <div class="hint" style="font-weight:600;color:var(--ink);margin:14px 0 4px;">Raw materials (% of batch weight)</div>
+        <div class="hint" style="margin-bottom:8px;">Percentages scale to whatever batch size is entered when printing the sheet or starting a batch.</div>
+        <div id="material-editor-list">
+          ${d.materials.map((m,i)=>{
+            const amt = recipeMaterialAmount(m.percent, d.batchSizeKg);
+            return `
+          <div class="step-editor-row">
+            <span class="se-num">${i+1}</span>
+            <div class="se-fields" style="grid-template-columns:2fr 1fr 1fr;">
+              <input id="mat-name-${m.id}" value="${esc(m.name)}" placeholder="Raw material — e.g. DI water">
+              <input id="mat-pct-${m.id}" type="number" min="0" step="0.001" value="${m.percent}" placeholder="Percentage" oninput="updateMaterialAmountPreview('${m.id}')">
+              <div class="hint" id="mat-amt-${m.id}" style="align-self:center;">${amt.toFixed(3)}</div>
+            </div>
+            <div class="se-actions">
+              <button type="button" data-mat-up="${m.id}" title="Move up">↑</button>
+              <button type="button" data-mat-down="${m.id}" title="Move down">↓</button>
+              <button type="button" data-mat-remove="${m.id}" title="Remove">✕</button>
+            </div>
+          </div>`;}).join('')}
+        </div>
+        <button type="button" class="btn btn-sm" id="btn-add-material" style="margin-bottom:6px;">+ Add raw material</button>
+        <div class="hint" style="margin-bottom:16px;">Total: <strong style="color:var(--ink);" id="mat-total-pct">${totalPct.toFixed(3)}%</strong></div>
+
+        <div class="field-row">
+          <div class="field"><label>Standard finished product pH (optional)</label><input name="standardPH" value="${esc(d.standardPH)}" placeholder="e.g. 5.5 - 6.5"></div>
+        </div>
+        <div class="field"><label>Combine together (optional)</label><textarea name="combineNote" placeholder="e.g. White Oil, Palm Oil, Stearic Acid, Cetyl Alcohol, Cetareth 20, GMS 40, BHT, EGDS" style="min-height:60px;">${esc(d.combineNote)}</textarea></div>
+
+        <div class="hint" style="font-weight:600;color:var(--ink);margin:14px 0 8px;">Mixing steps</div>
         <div id="step-editor-list">
           ${d.steps.map((s,i)=>`
           <div class="step-editor-row">
             <span class="se-num">${i+1}</span>
             <div class="se-fields">
-              <input id="step-ing-${s.id}" value="${esc(s.ingredient)}" placeholder="Ingredient / instruction — e.g. Add water">
-              <input id="step-amt-${s.id}" value="${esc(s.amount)}" placeholder="Amount — e.g. 75kg">
+              <input id="step-ing-${s.id}" value="${esc(s.ingredient)}" placeholder="Instruction — e.g. Carbomer + H2O">
+              <input id="step-amt-${s.id}" value="${esc(s.amount)}" placeholder="Amount — e.g. 80kg">
               <input id="step-wait-${s.id}" type="number" min="0" step="0.5" value="${s.waitMinutes}" placeholder="Wait (min)">
             </div>
             <div class="se-actions">
@@ -5215,6 +5572,62 @@ function recipeFormModal(){
           <button type="submit" class="btn btn-primary">${d.id?'Save changes':'Create recipe'}</button>
         </div>
       </form>
+    </div>
+  </div>`;
+}
+// Recalculates every raw material's amount + the totals row as the batch size input changes,
+// without a full render() (keeps the input focused mid-keystroke).
+function updateBatchSheetAmounts(recipeId){
+  const r = byId(state.recipes, recipeId); if(!r) return;
+  const sizeEl = document.getElementById('sheet-batch-size');
+  const batchSizeKg = parseFloat(sizeEl && sizeEl.value)||0;
+  let totalAmt = 0;
+  (r.materials||[]).forEach(m=>{
+    const amt = recipeMaterialAmount(m.percent, batchSizeKg);
+    totalAmt += amt;
+    const cell = document.querySelector('.sheet-amt[data-mat-id="'+m.id+'"]');
+    if(cell) cell.textContent = amt.toFixed(3);
+  });
+  const totalAmtEl = document.getElementById('sheet-total-amt');
+  if(totalAmtEl) totalAmtEl.textContent = totalAmt.toFixed(3);
+}
+function recipeBatchSheetModal(recipeId){
+  const r = byId(state.recipes, recipeId); if(!r) return '';
+  const batchSizeKg = r.batchSizeKg || 0;
+  const totalPct = recipeMaterialsTotalPercent(r.materials);
+  const totalAmt = recipeMaterialAmount(totalPct, batchSizeKg);
+  return `
+  <div class="overlay" id="overlay">
+    <div class="modal batch-sheet-print" style="max-width:680px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+        <div><div class="hint">Date</div><div style="font-weight:600;">${fmtDate(new Date().toISOString())}</div></div>
+        <div><div class="hint">Batch number</div><input id="sheet-batch-no" value="${esc(uid('BLD'))}" style="font-weight:600;border:1px solid var(--border);border-radius:6px;padding:4px 8px;width:150px;text-align:right;"></div>
+      </div>
+      <h2 style="text-align:center;margin:6px 0 2px;text-transform:uppercase;">${esc(r.name)}</h2>
+      ${r.description ? `<div class="hint" style="text-align:center;margin-bottom:10px;">${esc(r.description)}</div>` : ''}
+      <div class="field" style="max-width:220px;margin:0 auto 14px;">
+        <label style="text-align:center;display:block;">Batch size (kg)</label>
+        <input id="sheet-batch-size" type="number" min="0" step="0.1" value="${batchSizeKg}" style="text-align:center;" oninput="updateBatchSheetAmounts('${r.id}')">
+      </div>
+      <table class="data-table">
+        <thead><tr><th>No</th><th>Raw material</th><th>Percentage</th><th>Amount needed</th></tr></thead>
+        <tbody>
+          ${r.materials.map((m,i)=>`<tr><td>${i+1}</td><td>${esc(m.name)}</td><td>${m.percent.toFixed(3)}</td><td class="sheet-amt" data-mat-id="${m.id}">${recipeMaterialAmount(m.percent, batchSizeKg).toFixed(3)}</td></tr>`).join('')}
+          <tr style="font-weight:700;"><td></td><td>Total</td><td>${totalPct.toFixed(3)}</td><td id="sheet-total-amt">${totalAmt.toFixed(3)}</td></tr>
+        </tbody>
+      </table>
+      ${r.steps.length ? `
+      <div class="hint" style="font-weight:600;color:var(--ink);margin:16px 0 8px;">Mixing steps</div>
+      <ol style="margin:0 0 14px;padding-left:20px;">
+        ${r.steps.map(s=>`<li style="margin-bottom:4px;">${esc(s.ingredient)}${s.amount?' — '+esc(s.amount):''}${s.waitMinutes>0?' ('+s.waitMinutes+' min)':''}</li>`).join('')}
+      </ol>` : ''}
+      ${r.combineNote ? `<div class="hint" style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:14px;"><strong style="color:var(--ink);">Combine together:</strong> ${esc(r.combineNote)}</div>` : ''}
+      ${r.standardPH ? `<div class="hint" style="text-align:center;margin-bottom:10px;">Standard finished product pH ${esc(r.standardPH)}</div>` : ''}
+      <div class="hint" style="text-align:center;">Audrey Care (Pvt) Ltd.</div>
+      <div class="modal-actions" style="justify-content:center;margin-top:16px;">
+        <button type="button" class="btn" id="btn-cancel-modal">Close</button>
+        <button type="button" class="btn btn-primary" id="btn-print-batchsheet">🖨 Print</button>
+      </div>
     </div>
   </div>`;
 }
@@ -5305,8 +5718,10 @@ function renderModal(){
   if(type==='staff') return staffFormModal(id==='new'?null:id);
   if(type==='template') return templateFormModal();
   if(type==='recipe') return recipeFormModal();
+  if(type==='recipesheet') return recipeBatchSheetModal(parts.slice(1).join(':'));
   if(type==='startbatch') return startBatchModal(id);
   if(type==='citypak') return citypakTagModal(parts.slice(1).join(':'));
+  if(type==='deliveryoutcome') return deliveryOutcomeModal(parts.slice(1).join(':'));
   if(type==='smsconfirm') return smsConfirmModal();
   if(type==='brandaddon') return brandingPreviewModal(parts.slice(1).join(':'));
   if(type==='brandnew') return brandingAddAddonModal();
@@ -5457,6 +5872,31 @@ function citypakTagModal(id){
       </form>
     </div>
   </div>`;
+}
+function deliveryOutcomeModal(id){
+  const o = byId(state.orders, id); if(!o) return '';
+  return `
+  <div class="overlay" id="overlay">
+    <div class="modal" style="max-width:360px;text-align:center;">
+      <h2>Delivery outcome</h2>
+      <div class="sub">${esc(o.orderNumber||o.id)} · ${esc(o.customer)}</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px;">
+        <button type="button" class="btn btn-success" data-set-delivery-outcome="${o.id}:Delivered" style="padding:14px;font-size:15px;">✓ Delivered</button>
+        <button type="button" class="btn btn-danger" data-set-delivery-outcome="${o.id}:Returned" style="padding:14px;font-size:15px;">✗ Returned</button>
+      </div>
+      <div class="modal-actions" style="justify-content:center;margin-top:16px;">
+        <button type="button" class="btn" id="btn-cancel-modal">Cancel</button>
+      </div>
+    </div>
+  </div>`;
+}
+async function setDeliveryOutcome(orderId, outcome){
+  const o = byId(state.orders, orderId);
+  if(!o) return;
+  o.deliveryOutcome = outcome;
+  o.deliveryOutcomeAt = new Date().toISOString();
+  await save('orders');
+  closeModal();
 }
 
 function smsConfirmModal(){
@@ -6345,6 +6785,11 @@ function attachShellHandlers(){
   if(byIdEl('order-inquiry-search')) byIdEl('order-inquiry-search').addEventListener('input', e=>{ state.filters.orderInquirySearch = e.target.value; render(); });
   document.querySelectorAll('[data-review-fb]').forEach(b=>b.addEventListener('click', ()=>sendOrderReviewSms(b.dataset.reviewFb, 'facebook')));
   document.querySelectorAll('[data-review-google]').forEach(b=>b.addEventListener('click', ()=>sendOrderReviewSms(b.dataset.reviewGoogle, 'google')));
+  document.querySelectorAll('[data-open-delivery-outcome]').forEach(b=>b.addEventListener('click', ()=>openModal('deliveryoutcome:'+b.dataset.openDeliveryOutcome)));
+  document.querySelectorAll('[data-set-delivery-outcome]').forEach(b=>b.addEventListener('click', ()=>{
+    const [orderId, outcome] = b.dataset.setDeliveryOutcome.split(':');
+    setDeliveryOutcome(orderId, outcome);
+  }));
   if(byIdEl('customer-import-input')) byIdEl('customer-import-input').addEventListener('change', async e=>{
     const file = e.target.files && e.target.files[0];
     if(!file) return;
@@ -6513,12 +6958,18 @@ function attachShellHandlers(){
   document.querySelectorAll('[data-edit-recipe]').forEach(b=>b.addEventListener('click', ()=>openRecipeModal(b.dataset.editRecipe)));
   document.querySelectorAll('[data-delete-recipe]').forEach(b=>b.addEventListener('click', ()=>deleteRecipe(b.dataset.deleteRecipe)));
   document.querySelectorAll('[data-start-batch]').forEach(b=>b.addEventListener('click', ()=>openModal('startbatch:'+b.dataset.startBatch)));
+  document.querySelectorAll('[data-view-batchsheet]').forEach(b=>b.addEventListener('click', ()=>openModal('recipesheet:'+b.dataset.viewBatchsheet)));
+  if(byIdEl('btn-print-batchsheet')) byIdEl('btn-print-batchsheet').onclick = ()=>window.print();
   if(byIdEl('form-start-batch')) byIdEl('form-start-batch').addEventListener('submit', submitStartBatch);
   if(byIdEl('form-recipe')) byIdEl('form-recipe').addEventListener('submit', submitRecipe);
-  if(byIdEl('btn-add-step')) byIdEl('btn-add-step').onclick = ()=>{ syncDraftStepFieldsFromDOM(); draftAddStep(); };
-  document.querySelectorAll('[data-step-up]').forEach(b=>b.addEventListener('click', ()=>{ syncDraftStepFieldsFromDOM(); draftMoveStep(b.dataset.stepUp, -1); }));
-  document.querySelectorAll('[data-step-down]').forEach(b=>b.addEventListener('click', ()=>{ syncDraftStepFieldsFromDOM(); draftMoveStep(b.dataset.stepDown, 1); }));
-  document.querySelectorAll('[data-step-remove]').forEach(b=>b.addEventListener('click', ()=>{ syncDraftStepFieldsFromDOM(); draftRemoveStep(b.dataset.stepRemove); }));
+  if(byIdEl('btn-add-step')) byIdEl('btn-add-step').onclick = ()=>{ syncDraftTopFieldsFromDOM(); syncDraftStepFieldsFromDOM(); syncDraftMaterialFieldsFromDOM(); draftAddStep(); };
+  document.querySelectorAll('[data-step-up]').forEach(b=>b.addEventListener('click', ()=>{ syncDraftTopFieldsFromDOM(); syncDraftStepFieldsFromDOM(); syncDraftMaterialFieldsFromDOM(); draftMoveStep(b.dataset.stepUp, -1); }));
+  document.querySelectorAll('[data-step-down]').forEach(b=>b.addEventListener('click', ()=>{ syncDraftTopFieldsFromDOM(); syncDraftStepFieldsFromDOM(); syncDraftMaterialFieldsFromDOM(); draftMoveStep(b.dataset.stepDown, 1); }));
+  document.querySelectorAll('[data-step-remove]').forEach(b=>b.addEventListener('click', ()=>{ syncDraftTopFieldsFromDOM(); syncDraftStepFieldsFromDOM(); syncDraftMaterialFieldsFromDOM(); draftRemoveStep(b.dataset.stepRemove); }));
+  if(byIdEl('btn-add-material')) byIdEl('btn-add-material').onclick = ()=>{ syncDraftTopFieldsFromDOM(); syncDraftStepFieldsFromDOM(); syncDraftMaterialFieldsFromDOM(); draftAddMaterial(); };
+  document.querySelectorAll('[data-mat-up]').forEach(b=>b.addEventListener('click', ()=>{ syncDraftTopFieldsFromDOM(); syncDraftStepFieldsFromDOM(); syncDraftMaterialFieldsFromDOM(); draftMoveMaterial(b.dataset.matUp, -1); }));
+  document.querySelectorAll('[data-mat-down]').forEach(b=>b.addEventListener('click', ()=>{ syncDraftTopFieldsFromDOM(); syncDraftStepFieldsFromDOM(); syncDraftMaterialFieldsFromDOM(); draftMoveMaterial(b.dataset.matDown, 1); }));
+  document.querySelectorAll('[data-mat-remove]').forEach(b=>b.addEventListener('click', ()=>{ syncDraftTopFieldsFromDOM(); syncDraftStepFieldsFromDOM(); syncDraftMaterialFieldsFromDOM(); draftRemoveMaterial(b.dataset.matRemove); }));
   if(byIdEl('btn-batch-pause')) byIdEl('btn-batch-pause').onclick = pauseBatch;
   if(byIdEl('btn-batch-resume')) byIdEl('btn-batch-resume').onclick = resumeBatch;
   if(byIdEl('btn-batch-restart')) byIdEl('btn-batch-restart').onclick = restartCurrentStep;
@@ -6709,20 +7160,6 @@ function attachShellHandlers(){
   scrollAiChatToBottom();
 
   if(byIdEl('form-add-staff')) byIdEl('form-add-staff').addEventListener('submit', addStaffMember);
-  if(byIdEl('form-passwords')) byIdEl('form-passwords').addEventListener('submit', async (e)=>{
-    e.preventDefault();
-    const f = e.target;
-    state.auth = {
-      ...state.auth,
-      adminPassword: f.adminPassword.value.trim() || DEFAULT_AUTH.adminPassword,
-      subAdminPassword: f.subAdminPassword.value.trim() || DEFAULT_AUTH.subAdminPassword,
-      blendingPassword: f.blendingPassword.value.trim() || DEFAULT_AUTH.blendingPassword,
-      packingPassword: f.packingPassword.value.trim() || DEFAULT_AUTH.packingPassword,
-      customerCarePassword: f.customerCarePassword.value.trim() || DEFAULT_AUTH.customerCarePassword
-    };
-    await saveAuth();
-    showToast('Passwords updated');
-  });
 
   if(byIdEl('form-role-logins')) byIdEl('form-role-logins').addEventListener('submit', async (e)=>{
     e.preventDefault();
