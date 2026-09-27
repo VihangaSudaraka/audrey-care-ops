@@ -427,6 +427,26 @@
   .timeline .item{font-size:13px;position:relative;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 13px;line-height:1.45;box-shadow:0 2px 6px rgba(20,25,20,.05);}
   .timeline .item:before{content:'';position:absolute;left:-24.5px;top:15px;width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--surface);}
   .timeline .item .t{color:var(--muted);font-size:11px;margin-top:4px;}
+  .citypak-live-track{position:relative;height:52px;margin:2px 0 8px;}
+  .citypak-live-track .cpl-line{position:absolute;left:6%;right:6%;top:37px;height:3px;background:var(--border);border-radius:99px;}
+  .citypak-live-track .cpl-dot{position:absolute;top:33px;width:9px;height:9px;border-radius:50%;background:var(--border);}
+  .citypak-live-track .cpl-dot.start{left:calc(6% - 4.5px);}
+  .citypak-live-track .cpl-dot.end{left:calc(94% - 4.5px);background:var(--accent);}
+  .citypak-live-track .cpl-pin{position:absolute;top:0;left:6%;width:24px;height:24px;margin-left:-12px;color:var(--accent);animation:citypak-pin-hop 3.6s ease-in-out infinite;}
+  .citypak-live-track .cpl-pin svg{width:100%;height:100%;display:block;filter:drop-shadow(0 3px 3px rgba(20,25,20,.22));}
+  @keyframes citypak-pin-hop{
+    0%{left:6%;transform:translateY(0);}
+    8%{transform:translateY(-15px);}
+    16%{left:27%;transform:translateY(0);}
+    24%{transform:translateY(-15px);}
+    32%{left:48%;transform:translateY(0);}
+    40%{transform:translateY(-15px);}
+    48%{left:69%;transform:translateY(0);}
+    56%{transform:translateY(-15px);}
+    64%{left:88%;transform:translateY(0);}
+    72%{transform:translateY(-8px);}
+    82%,100%{left:88%;transform:translateY(0);}
+  }
 
   /* ---------------- Recipes / batch timer ---------------- */
   .recipe-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;display:flex;flex-direction:column;gap:8px;}
@@ -759,9 +779,17 @@ function renderCitypakTrackingBlock(trackingNumber){
   const d = cached.data || {};
   const history = (d.tracking_history||[]).slice().reverse();
   if(!history.length) return fallbackLink;
+  const liveTrack = d.is_delivered ? '' : `
+    <div class="citypak-live-track">
+      <div class="cpl-line"></div>
+      <div class="cpl-dot start"></div>
+      <div class="cpl-dot end"></div>
+      <div class="cpl-pin"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.6" fill="var(--surface)"/></svg></div>
+    </div>`;
   return `
   <div class="field" style="margin-top:18px;">
     <label style="text-align:center;display:block;">Delivery tracking${d.is_delivered ? ' — delivered' : ''}</label>
+    ${liveTrack}
     <div class="timeline">
       ${history.map(h=>`<div class="item">${esc(h.status_type||'')}${h.location?' · '+esc(h.location):''}${h.description?' — '+esc(h.description):''}<div class="t">${esc(h.date||'')} ${esc(h.time||'')}</div></div>`).join('')}
     </div>
