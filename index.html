@@ -1854,12 +1854,11 @@ function showChatNotice(sender, text){
   state._chatNoticeTimer = setTimeout(()=>{ state.chatNotice = null; render(); }, 10000);
 }
 // Forces a full-screen panel in front of everything when Admin messages a Packing session — no
-// outside-click or Escape dismissal, only the panel's own Close button (or sending a reply).
+// outside-click, Escape, or Close-button dismissal; the only way out is sending a reply.
 function showAdminBroadcast(msg){
   state.adminBroadcast = { id: msg.id, sender: msg.sender, text: msg.text, at: msg.at };
   render();
 }
-function closeAdminBroadcast(){ state.adminBroadcast = null; render(); }
 async function sendAdminBroadcastReply(e){
   e.preventDefault();
   const textarea = e.target.reply;
@@ -3633,10 +3632,10 @@ function renderAdminBroadcastPanel(){
         </div>
       </div>
       <div class="admin-broadcast-body">${escBody(b.text)}</div>
+      <div class="hint" style="margin:2px 0 10px;">Send a reply to dismiss this message.</div>
       <form id="form-admin-broadcast-reply">
-        <textarea name="reply" class="admin-broadcast-reply-input" placeholder="Type a reply…" rows="3"></textarea>
+        <textarea name="reply" class="admin-broadcast-reply-input" placeholder="Type a reply…" rows="3" required></textarea>
         <div class="admin-broadcast-actions">
-          <button type="button" class="btn" id="btn-close-admin-broadcast">Close</button>
           <button type="submit" class="btn btn-primary">Send reply</button>
         </div>
       </form>
@@ -7165,7 +7164,6 @@ function attachShellHandlers(){
 
   // Admin broadcast (forced panel for Packing when Admin messages the team chat) — no
   // outside-click close, only its own Close button or sending a reply.
-  if(byIdEl('btn-close-admin-broadcast')) byIdEl('btn-close-admin-broadcast').onclick = closeAdminBroadcast;
   if(byIdEl('form-admin-broadcast-reply')) byIdEl('form-admin-broadcast-reply').addEventListener('submit', sendAdminBroadcastReply);
 
   // Modal generic — clicking the overlay background closes the modal, except for New order:
