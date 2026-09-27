@@ -2202,6 +2202,7 @@ async function submitOrderEdit(e){
   syncRichTextInputs(f);
   if(!stripTags(f.product.value)){ showToast('Enter the product / task'); return; }
   const oldCourierNumber = (o.courierNumber||'').trim();
+  const oldPhone = (o.phone||'').trim();
   Object.assign(o, {
     product: f.product.value.trim(),
     priority: f.priority.value, startDate: f.startDate.value, dueDate: f.dueDate.value,
@@ -2221,7 +2222,8 @@ async function submitOrderEdit(e){
   await save('orders');
   showToast(photoError ? `Order updated, but the picture could not be uploaded: ${photoError}` : 'Order updated', photoError?9000:undefined);
   const trackingChanged = o.courierNumber && o.courierNumber!==oldCourierNumber;
-  if(trackingChanged && o.phone) await triggerAutoOrderSms(o, 'trackingUpdated');
+  const phoneChanged = o.phone && o.phone!==oldPhone;
+  if((trackingChanged || phoneChanged) && o.phone) await triggerAutoOrderSms(o, 'trackingUpdated');
   else closeModal();
 }
 async function updateOrderNotes(id, notes){
@@ -6127,13 +6129,15 @@ function smsConfirmModal(){
   const pc = state.pendingSmsConfirm;
   const o = pc && byId(state.orders, pc.orderId);
   if(!pc || !o) return '';
-  const label = pc.kind==='pickedup' ? 'has been picked up by delivery' : pc.kind==='trackingUpdated' ? 'has an updated delivery tracking link' : 'is now processing';
+  const question = pc.kind==='pickedup' ? `Let ${esc(o.customer)} know their order has been picked up by delivery, by text message?`
+    : pc.kind==='trackingUpdated' ? `Text ${esc(o.customer)} their order's delivery tracking link?`
+    : `Let ${esc(o.customer)} know their order is now processing, by text message?`;
   return `
   <div class="overlay" id="overlay">
     <div class="modal" style="max-width:400px;">
       <h2>Send SMS?</h2>
       <div class="sub">${esc(o.orderNumber||o.id)} · ${esc(o.customer)}</div>
-      <p>Let ${esc(o.customer)} know their order ${label}, by text message?</p>
+      <p>${question}</p>
       <div class="modal-actions">
         <button type="button" class="btn" id="btn-sms-confirm-no">No</button>
         <button type="button" class="btn btn-primary" id="btn-sms-confirm-yes">Yes, send SMS</button>
