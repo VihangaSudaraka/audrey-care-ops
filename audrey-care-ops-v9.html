@@ -1937,12 +1937,14 @@ async function confirmLogin(){
   state.session = {name: sessionName, role, staffName: sessionName!==role ? sessionName : null};
   state.page = (pagesForRole(role)||['dashboard'])[0] || 'dashboard';
   state._justLoggedIn = true;
+  state.aiChat = [];
   clearInterval(state._loginClockTimer);
   await saveSession();
   render();
 }
 async function logOut(){
   state.session = null; state._pendingRole = null;
+  state.aiChat = [];
   await saveSession();
   render();
 }
