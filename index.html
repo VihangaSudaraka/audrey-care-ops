@@ -2028,16 +2028,25 @@ async function submitCitypakTag(e){
   o.courierNumber = tag;
   await advanceOrder(id);
 }
-async function moveOrderToStage(id, newStage, newCourierService){
+function applyBoardOrder(orderedIds){
+  if(!orderedIds) return;
+  orderedIds.forEach((id,i)=>{ const o=byId(state.orders,id); if(o) o.boardOrder=i; });
+}
+async function moveOrderToStage(id, newStage, newCourierService, orderedIds){
   const o = byId(state.orders, id); if(!o) return;
   const courierChanged = newCourierService!==undefined && (o.courierService||'')!==newCourierService;
-  if(o.stage===newStage && !courierChanged) return;
+  if(o.stage===newStage && !courierChanged){
+    // Same column — this is a pure drag-to-reorder, not a stage change.
+    if(orderedIds){ applyBoardOrder(orderedIds); await save('orders'); }
+    return;
+  }
   const oldStage = o.stage;
   o.stage = newStage;
   if(courierChanged) o.courierService = newCourierService;
   if(newStage===STAGES.length-1){ o.completedAt = new Date().toISOString(); }
   else { o.completedAt = null; o.archived = false; o.archivedAt = null; }
   o.history.push({stage:newStage, at:new Date().toISOString(), by:state.session.name});
+  applyBoardOrder(orderedIds);
   await save('orders');
   showToast(courierChanged ? `Moved to ${STAGES[newStage]} — now ${newCourierService||'unassigned'} delivery` : 'Moved to '+STAGES[newStage]);
   // Only text the customer when the order actually progresses forward — a card dragged backwards
@@ -3413,6 +3422,15 @@ function navGroupsFor(allowedIds){
     .filter(g => g.items.length > 0);
 }
 // Finds the row a dragged sidebar-order item should be inserted before, based on cursor Y position.
+function cardDragAfterElement(container, y){
+  const els = [...container.querySelectorAll('.card:not(.dragging)')];
+  return els.reduce((closest, child)=>{
+    const box = child.getBoundingClientRect();
+    const offset = y - box.top - box.height/2;
+    if(offset < 0 && offset > closest.offset) return { offset, element: child };
+    return closest;
+  }, { offset: -Infinity, element: null }).element;
+}
 function navDragAfterElement(container, y){
   const els = [...container.querySelectorAll('.nav-order-row:not(.dragging)')];
   return els.reduce((closest, child)=>{
@@ -3734,9 +3752,10 @@ function renderOrdersArchivePage(archived){
   </div>`}
   `;
 }
+function boardOrderOf(o){ return o.boardOrder!=null ? o.boardOrder : new Date(o.createdAt).getTime(); }
 function renderColumn(stageName, i, sourceOrders, courierKey){
   const key = STAGE_KEYS[i]; const style = STAGE_STYLE[key];
-  const orders = (sourceOrders || activeOrders()).filter(o=>o.stage===i).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
+  const orders = (sourceOrders || activeOrders()).filter(o=>o.stage===i).sort((a,b)=>boardOrderOf(a)-boardOrderOf(b));
   return `
   <div class="column">
     <div class="column-head" style="background:${style.bg};color:${style.c};">
@@ -6546,14 +6565,21 @@ function attachShellHandlers(){
     c.addEventListener('dragend', ()=>{ c.classList.remove('dragging'); state._draggedOrderId = null; state._draggedBlendId = null; });
   });
   document.querySelectorAll('.column-body[data-stage]').forEach(col=>{
-    col.addEventListener('dragover', e=>{ e.preventDefault(); col.classList.add('drag-over'); });
+    col.addEventListener('dragover', e=>{
+      e.preventDefault(); col.classList.add('drag-over');
+      const dragging = document.querySelector('.card.dragging');
+      if(!dragging) return;
+      const after = cardDragAfterElement(col, e.clientY);
+      if(after==null) col.appendChild(dragging); else col.insertBefore(dragging, after);
+    });
     col.addEventListener('dragleave', ()=>col.classList.remove('drag-over'));
     col.addEventListener('drop', e=>{
       e.preventDefault(); col.classList.remove('drag-over');
       const orderId = state._draggedOrderId || (e.dataTransfer && e.dataTransfer.getData('text/plain'));
       const targetStage = parseInt(col.dataset.stage, 10);
       const targetCourier = col.dataset.courier;
-      if(orderId) moveOrderToStage(orderId, targetStage, targetCourier);
+      const orderedIds = [...col.querySelectorAll('.card[data-order]')].map(c=>c.dataset.order);
+      if(orderId) moveOrderToStage(orderId, targetStage, targetCourier, orderedIds);
       state._draggedOrderId = null;
     });
   });
