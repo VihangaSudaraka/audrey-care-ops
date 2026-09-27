@@ -1957,7 +1957,7 @@ function goTo(page){
 }
 function toggleSidebar(){ state.sidebarOpen = !state.sidebarOpen; render(); }
 function openModal(m){ state.modal = m; render(); }
-function closeModal(){ state.modal = null; state._deliveryLinesDraft = null; state._staffCategoriesDraft = null; state._complaintReasonsDraft = null; state._complaintPrioritiesDraft = null; state._bulkSmsTemplateForm = null; state.pendingSmsConfirm = null; stopSpeaking(); render(); }
+function closeModal(){ state.modal = null; state._deliveryLinesDraft = null; state._staffCategoriesDraft = null; state._complaintReasonsDraft = null; state._complaintPrioritiesDraft = null; state._bulkSmsTemplateForm = null; state.pendingSmsConfirm = null; render(); }
 
 /* ===================== Orders logic ===================== */
 async function createOrder(e){
@@ -2772,90 +2772,128 @@ async function deleteChatHistory(){
 // API, no setup, works instantly. Recognizes a fixed set of common questions (orders,
 // blending batches, complaints, revenue, customers, staff, deliveries); anything else gets
 // a helpful fallback listing what it can do.
+// Bilingual keyword match — checks the query for any English or Sinhala (script or common
+// Singlish transliteration) form of a term. Sri Lankan staff often type Sinhala using English
+// letters when there's no Sinhala keyboard handy, so both forms are matched.
+function qHas(q, ...words){ return words.some(w=>q.includes(w)); }
+
 function answerAiQuery(raw){
   const q = (raw||'').toLowerCase().trim();
   if(!q) return "Ask me something like \"today's order summary\" or \"today's blending batches\".";
 
-  if(/^(hi|hello|hey)\b/.test(q)){
-    return "Hi! I can answer questions about orders, blending batches, complaints, revenue, customers, staff, and deliveries — try \"today's order summary\" or \"open complaints\".";
+  if(/^(hi|hello|hey)\b/.test(q) || qHas(q,'ආයුබෝවන්','ayubowan')){
+    return "Hi! Ask me about orders, blending batches, complaints, revenue, customers, staff, deliveries, recipes, suppliers, ratings, or GMP checklists — in English or Sinhala. Try \"today's order summary\" or \"අද ඇණවුම් සාරාංශය\".";
   }
 
-  if(q.includes('order') && (q.includes('today') || q.includes('summary'))){
+  // Direct order-number lookup, e.g. "SO2609128" or "where is ACIN261596" — checked first
+  // since it's more specific than the general "order" keyword matches below.
+  const orderMatch = state.orders.find(o => o.orderNumber && q.includes(o.orderNumber.toLowerCase()));
+  if(orderMatch){
+    const stageName = STAGES[orderMatch.stage];
+    const outcome = orderMatch.deliveryOutcome ? ` Marked as ${orderMatch.deliveryOutcome}.` : '';
+    const rating = orderMatch.customerRating ? ` Customer rated it ${orderMatch.customerRating}/5.` : '';
+    return `Order ${orderMatch.orderNumber} — ${orderMatch.customer} — is at "${stageName}".${outcome}${rating}`;
+  }
+
+  if(qHas(q,'picked up today','delivered today','අද බෙදා','adha bedaha')){
+    const today = activeOrders().filter(o=>o.stage===STAGES.length-1 && isToday(o.completedAt));
+    return `${today.length} order${today.length===1?'':'s'} picked up by delivery today.`;
+  }
+
+  if(qHas(q,'order','ඇණවුම','anawum','ඕඩර්') && qHas(q,'today','summary','අද','සාරාංශ','adha')){
     const todays = state.orders.filter(o=>isToday(o.createdAt));
     if(todays.length===0) return "No orders were placed today yet.";
     const lines = STAGES.map((s,i)=>({s, n: todays.filter(o=>o.stage===i).length})).filter(x=>x.n>0).map(x=>`${x.s}: ${x.n}`).join(', ');
     return `Today's orders: ${todays.length} total. ${lines}.`;
   }
 
-  if(q.includes('order') && q.includes('pending')){
+  if(qHas(q,'order','ඇණවුම','anawum','ඕඩර්') && qHas(q,'pending','ලැබීමට','pending','ඉතිරි')){
     const active = activeOrders();
     const pending = active.filter(o=>o.stage < STAGES.length-1);
     return `${pending.length} pending order${pending.length===1?'':'s'} out of ${active.length} active order${active.length===1?'':'s'}.`;
   }
 
-  if(q.includes('order')){
+  if(qHas(q,'priority','high priority','ප්‍රමුඛතාව','urgent')){
+    const active = activeOrders();
+    const high = active.filter(o=>o.priority==='High').length;
+    return `${high} high-priority order${high===1?'':'s'} out of ${active.length} active.`;
+  }
+
+  if(qHas(q,'returned','delivery outcome','ආපසු','apasu')){
+    const delivered = state.orders.filter(o=>o.deliveryOutcome==='Delivered').length;
+    const returned = state.orders.filter(o=>o.deliveryOutcome==='Returned').length;
+    return `${delivered} order${delivered===1?'':'s'} marked Delivered, ${returned} marked Returned.`;
+  }
+
+  if(qHas(q,'order','ඇණවුම','anawum','ඕඩර්')){
     const active = activeOrders();
     const lines = STAGES.map((s,i)=>`${s}: ${active.filter(o=>o.stage===i).length}`).join(', ');
     return `${active.length} active order${active.length===1?'':'s'} right now. ${lines}.`;
   }
 
-  if(q.includes('blend') || q.includes('batch')){
+  if(qHas(q,'blend','batch','මිශ්‍ර','බැච්','mishra')){
     const active = (state.blendBatches||[]).filter(b=>b.stage < BLEND_STAGES.length-1);
     if(active.length===0) return "No blending batches are in progress right now.";
     const names = active.map(b=>`${[b.product,b.qty].filter(Boolean).join(' ')||'Batch'} (${b.batchNo||'no batch #'}) — ${BLEND_STAGES[b.stage]}`).join('; ');
     return `${active.length} batch${active.length===1?'':'es'} in progress: ${names}.`;
   }
 
-  if(q.includes('complaint')){
+  if(qHas(q,'complaint','පැමිණිලි','pamiili')){
     const open = state.complaints.filter(c=>c.status==='Open'||c.status==='In Progress');
     if(open.length===0) return "No open complaints right now — all clear!";
     const list = open.map(c=>`${c.customer} (${c.category||'no reason set'}, ${c.status})`).join('; ');
     return `${open.length} open complaint${open.length===1?'':'s'}: ${list}.`;
   }
 
-  if(q.includes('revenue')){
+  if(qHas(q,'revenue','ආදායම','adayama')){
     const revenue = activeOrders().reduce((sum,o)=>sum + (Number(o.value)||0), 0);
     return `Total revenue from active orders: $${revenue.toFixed(2)}.`;
   }
 
-  if(q.includes('customer')){
+  if(qHas(q,'rating','review','ශ්‍රේණි','රේටින්','feedback')){
+    const rated = state.orders.filter(o=>o.customerRating);
+    if(rated.length===0) return "No customer ratings yet.";
+    const avg = (rated.reduce((s,o)=>s+o.customerRating,0)/rated.length).toFixed(1);
+    const low = rated.filter(o=>o.customerRating<=3).length;
+    return `${rated.length} rating${rated.length===1?'':'s'} so far, average ${avg}/5. ${low} rating${low===1?'':'s'} were 3 stars or below.`;
+  }
+
+  if(qHas(q,'recipe','formula','වට්ටෝරු','wattoru')){
+    if(!state.recipes || state.recipes.length===0) return "No recipes saved yet.";
+    return `${state.recipes.length} recipe${state.recipes.length===1?'':'s'} saved: ${state.recipes.map(r=>r.name).join(', ')}.`;
+  }
+
+  if(qHas(q,'supplier','vendor','සැපයුම්කරු','sapayum')){
+    if(state.suppliers.length===0) return "No suppliers added yet.";
+    const active = state.suppliers.filter(s=>s.status==='Active'||!s.status).length;
+    return `${state.suppliers.length} supplier${state.suppliers.length===1?'':'s'} on file (${active} active).`;
+  }
+
+  if(qHas(q,'gmp','checklist','cleaning','පිරිසිදු','චෙක්ලිස්ට්')){
+    const count = (state.gmpChecklistEntries||[]).length;
+    return count>0 ? `${count} GMP checklist ${count===1?'entry has':'entries have'} been filled in so far.` : "No GMP checklist entries filled in yet.";
+  }
+
+  if(qHas(q,'customer','පාරිභෝගික','paribogika')){
     return `You have ${state.customers.length} registered customer${state.customers.length===1?'':'s'}.`;
   }
 
-  if(q.includes('staff') || q.includes('who is working') || q.includes('who works')){
+  if(qHas(q,'staff','who is working','who works','කාර්ය මණ්ඩල','සේවකයින්','sevakayin')){
     if(state.staff.length===0) return "No staff members are set up yet.";
     return `Staff: ${state.staff.map(s=>s.name).join(', ')}.`;
   }
 
-  if(q.includes('delivery') || q.includes('courier')){
+  if(qHas(q,'delivery','courier','බෙදාහැරීම','ඩිලිවරි','bedahara')){
     const active = activeOrders();
     const lines = (state.deliveryLines||[]).map(l=>`${l.label}: ${active.filter(o=>o.courierService===l.key).length}`).join(', ');
     return lines ? `Orders by delivery line — ${lines}.` : "No delivery lines are set up yet.";
   }
 
-  return "I'm not sure about that yet — try asking about orders, blending batches, complaints, revenue, customers, staff, or deliveries.";
+  return "I'm not sure about that yet — try asking about orders, blending batches, complaints, revenue, customers, staff, deliveries, recipes, suppliers, ratings, or GMP checklists (English or Sinhala both work).";
 }
 function scrollAiChatToBottom(){
   const el = document.getElementById('aichat-log');
   if(el) el.scrollTop = el.scrollHeight;
-}
-function aiVoiceEnabled(){
-  try{ const v = localStorage.getItem('audrey_ai_voice'); return v===null ? true : v==='1'; }
-  catch(e){ return true; }
-}
-function setAiVoiceEnabled(v){
-  try{ localStorage.setItem('audrey_ai_voice', v ? '1' : '0'); }catch(e){}
-}
-function speakText(text){
-  if(!text || !('speechSynthesis' in window)) return;
-  try{
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    window.speechSynthesis.speak(utter);
-  }catch(e){ console.error('speech synthesis failed', e); }
-}
-function stopSpeaking(){
-  try{ if('speechSynthesis' in window) window.speechSynthesis.cancel(); }catch(e){}
 }
 function sendAiChatMessage(e){
   e.preventDefault();
@@ -2868,7 +2906,6 @@ function sendAiChatMessage(e){
   input.value = '';
   render();
   scrollAiChatToBottom();
-  if(aiVoiceEnabled()) speakText(reply);
 }
 function askAiSuggestion(text){
   state.aiChat.push({sender:'user', text});
@@ -2876,7 +2913,6 @@ function askAiSuggestion(text){
   state.aiChat.push({sender:'bot', text: reply});
   render();
   scrollAiChatToBottom();
-  if(aiVoiceEnabled()) speakText(reply);
 }
 
 /* ===================== Render root ===================== */
@@ -5775,18 +5811,15 @@ function changePasswordModal(){
     </div>
   </div>`;
 }
-const AI_SUGGESTIONS = ["Today's order summary", "Blending batches", "Open complaints", "Total revenue"];
+const AI_SUGGESTIONS = ["Today's order summary", "Blending batches", "Open complaints", "Total revenue", "Customer ratings", "අද ඇණවුම් සාරාංශය"];
 function aiBotModal(){
   const chat = state.aiChat || [];
   return `
   <div class="overlay" id="overlay">
     <div class="modal" style="max-width:440px;display:flex;flex-direction:column;">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
-        <div>
-          <h2 style="margin-bottom:2px;">Workspace Assistant</h2>
-          <div class="sub">Ask about orders, batches, complaints, revenue, customers, staff, or deliveries.</div>
-        </div>
-        <button type="button" class="btn-text" id="btn-ai-voice-toggle" title="${aiVoiceEnabled()?'Voice replies on — click to mute':'Voice replies off — click to unmute'}" style="flex-shrink:0;font-size:18px;">${aiVoiceEnabled()?'🔊':'🔈'}</button>
+      <div>
+        <h2 style="margin-bottom:2px;">Workspace Assistant</h2>
+        <div class="sub">Ask about orders, batches, complaints, revenue, customers, staff, deliveries, recipes, suppliers, ratings, or GMP — in English or Sinhala.</div>
       </div>
       <div id="aichat-log" style="height:340px;overflow-y:auto;margin:12px 0;display:flex;flex-direction:column;gap:10px;padding:2px;">
         ${chat.length===0 ? `
@@ -5795,8 +5828,7 @@ function aiBotModal(){
           ${AI_SUGGESTIONS.map(s=>`<button type="button" class="btn btn-sm ai-suggestion" data-ai-suggestion="${esc(s)}">${esc(s)}</button>`).join('')}
         </div>
         ` : chat.map((m,i)=>`
-        <div style="align-self:${m.sender==='user'?'flex-end':'flex-start'};max-width:85%;display:flex;align-items:flex-end;gap:4px;">
-          ${m.sender==='bot' ? `<button type="button" class="btn-text ai-msg-speak" data-ai-speak-index="${i}" title="Play aloud" style="flex-shrink:0;">🔊</button>` : ''}
+        <div style="align-self:${m.sender==='user'?'flex-end':'flex-start'};max-width:85%;">
           <div style="background:${m.sender==='user'?'var(--accent)':'var(--bg)'};color:${m.sender==='user'?'#fff':'var(--ink)'};padding:8px 12px;border-radius:12px;font-size:13.5px;line-height:1.45;white-space:pre-wrap;">${escBody(m.text)}</div>
         </div>`).join('')}
       </div>
@@ -7173,16 +7205,6 @@ function attachShellHandlers(){
 
   if(byIdEl('form-aichat')) byIdEl('form-aichat').addEventListener('submit', sendAiChatMessage);
   document.querySelectorAll('[data-ai-suggestion]').forEach(b=>b.addEventListener('click', ()=>askAiSuggestion(b.dataset.aiSuggestion)));
-  if(byIdEl('btn-ai-voice-toggle')) byIdEl('btn-ai-voice-toggle').onclick = ()=>{
-    const next = !aiVoiceEnabled();
-    setAiVoiceEnabled(next);
-    if(!next) stopSpeaking();
-    render();
-  };
-  document.querySelectorAll('.ai-msg-speak').forEach(b=>b.addEventListener('click', ()=>{
-    const m = state.aiChat[Number(b.dataset.aiSpeakIndex)];
-    if(m) speakText(m.text);
-  }));
   scrollAiChatToBottom();
 
   if(byIdEl('form-add-staff')) byIdEl('form-add-staff').addEventListener('submit', addStaffMember);
