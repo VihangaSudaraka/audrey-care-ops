@@ -753,12 +753,14 @@ async function fetchCitypakTracking(trackingNumber){
     return { ok:false, error: 'Could not reach the tracking service.' };
   }
 }
-// Fetches (once) and caches a CityPak tracking number's live status, then re-renders the
-// public track page to show it. Safe to call on every render — it only fetches the first time.
-async function ensureCitypakTracking(trackingNumber){
+// Fetches and caches a CityPak tracking number's live status, then re-renders the public
+// track page to show it. Safe to call on every render — it only fetches once per tracking
+// number unless force=true (used to silently poll for new events without flashing "Loading…").
+async function ensureCitypakTracking(trackingNumber, force){
   if(!state._citypakTracking) state._citypakTracking = {};
-  if(state._citypakTracking[trackingNumber]) return;
-  state._citypakTracking[trackingNumber] = {loading:true};
+  const existing = state._citypakTracking[trackingNumber];
+  if(existing && !force) return;
+  if(!existing) state._citypakTracking[trackingNumber] = {loading:true};
   const result = await fetchCitypakTracking(trackingNumber);
   state._citypakTracking[trackingNumber] = result;
   if(state.trackMode) render();
@@ -1828,6 +1830,10 @@ async function loadAll(){
   }
   render();
   subscribeRealtime();
+  // Customer-facing tracking page: while a CityPak shipment is still in transit, silently
+  // re-poll for new tracking events so the page updates live without needing a manual reload.
+  // Stops itself once the shipment is marked delivered.
+  if(state.trackMode) setInterval(pollCitypakTrackingIfActive, 30000);
   setInterval(async ()=>{
     if(sweepCompletedOrders()){ await save('orders'); render(); }
     if(sweepClosedComplaints()){ await save('complaints'); render(); }
@@ -1838,6 +1844,13 @@ async function loadAll(){
       if(r.orders || r.complaints) render();
     }
   }, 30*60*1000);
+}
+function pollCitypakTrackingIfActive(){
+  const o = state.trackedOrderId ? byId(state.orders, state.trackedOrderId) : null;
+  if(!o || o.courierService!=='CityPak' || !o.courierNumber || o.stage<3 || !CITYPAK_CONFIGURED) return;
+  const cached = state._citypakTracking && state._citypakTracking[o.courierNumber];
+  if(cached && cached.ok && cached.data && cached.data.is_delivered) return;
+  ensureCitypakTracking(o.courierNumber, true);
 }
 async function saveAuth(){ try{ await kvSet('auth', state.auth); }catch(e){ console.error('save auth failed', e); } }
 async function save(key){
