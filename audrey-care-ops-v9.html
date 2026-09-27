@@ -1158,6 +1158,10 @@ const DEFAULT_AUTH = {
     'Customer Care': [
       {name:'Prabhath', password:'7915'},
       {name:'Vishmika', password:'7915'}
+    ],
+    'Sub Admin': [
+      {name:'Manoj', password:'7915'},
+      {name:'Nelum', password:'7915'}
     ]
   },
   // Admin-customized sidebar page lists for Blending/Packing (see pagesForRole()).
@@ -5115,12 +5119,12 @@ function renderSmsTemplatesPanel(){
   </div>`;
 }
 function renderRoleLoginsPanel(){
-  const roles = ['Admin','Customer Care'];
+  const roles = ['Admin','Customer Care','Sub Admin'];
   return `
   <div class="panel">
     <div class="panel-head"><h3>Team logins</h3></div>
     <div class="panel-body">
-      <div class="hint" style="margin-bottom:12px;">Names for Admin and Customer Care sign-in. Each person sets and changes their own password from "Change password" next to Log out — Admin can't view or change it, only remove the login entirely so they can be re-added with a fresh one.</div>
+      <div class="hint" style="margin-bottom:12px;">Names for Admin, Customer Care and Sub Admin sign-in. Each person sets and changes their own password from "Change password" next to Log out — Admin can't view or change it, only remove the login entirely so they can be re-added with a fresh one.</div>
       <form id="form-role-logins">
         ${roles.map(role => `
         <div class="hint" style="font-weight:600;color:var(--ink);margin:14px 0 6px;">${esc(role)}</div>
