@@ -2772,17 +2772,48 @@ async function deleteChatHistory(){
 // API, no setup, works instantly. Recognizes a fixed set of common questions (orders,
 // blending batches, complaints, revenue, customers, staff, deliveries); anything else gets
 // a helpful fallback listing what it can do.
-// Bilingual keyword match — checks the query for any English or Sinhala (script or common
-// Singlish transliteration) form of a term. Sri Lankan staff often type Sinhala using English
-// letters when there's no Sinhala keyboard handy, so both forms are matched.
 function qHas(q, ...words){ return words.some(w=>q.includes(w)); }
+
+// Page names/aliases the assistant recognizes for "go to ___" style navigation commands.
+const AI_NAV_PAGES = {
+  dashboard: ['dashboard', 'home'],
+  orders: ['orders board', 'order board', 'orders'],
+  orderinquiry: ['order inquiry', 'order lookup'],
+  blending: ['blending board', 'blending'],
+  recipes: ['recipes', 'recipe'],
+  customers: ['customers'],
+  suppliers: ['suppliers'],
+  complaints: ['complaints'],
+  gmp: ['gmp', 'checklists', 'checklist'],
+  staff: ['staff'],
+  chat: ['team chat', 'chat'],
+  bulksms: ['bulk sms', 'sms'],
+  ratings: ['customer ratings', 'ratings'],
+  settings: ['settings', 'setting'],
+};
+function findAiNavPage(q){
+  for(const [pageId, names] of Object.entries(AI_NAV_PAGES)){
+    if(names.some(n=>q.includes(n))) return pageId;
+  }
+  return null;
+}
 
 function answerAiQuery(raw){
   const q = (raw||'').toLowerCase().trim();
-  if(!q) return "Ask me something like \"today's order summary\" or \"today's blending batches\".";
+  if(!q) return "Ask me something like \"today's order summary\" or \"go to settings\".";
 
-  if(/^(hi|hello|hey)\b/.test(q) || qHas(q,'ආයුබෝවන්','ayubowan')){
-    return "Hi! Ask me about orders, blending batches, complaints, revenue, customers, staff, deliveries, recipes, suppliers, ratings, or GMP checklists — in English or Sinhala. Try \"today's order summary\" or \"අද ඇණවුම් සාරාංශය\".";
+  if(/^(hi|hello|hey)\b/.test(q)){
+    return "Hi! I can answer questions about orders, blending batches, complaints, revenue, customers, staff, deliveries, recipes, suppliers, ratings, and GMP checklists — and I can navigate the app for you. Try \"today's order summary\" or \"go to settings\".";
+  }
+
+  // Navigation commands — "go to settings", "open recipes", "show me the blending board", etc.
+  if(qHas(q,'go to','open ','navigate to','take me to','show me')){
+    const pageId = findAiNavPage(q);
+    if(pageId){
+      if(!pageAllowed(pageId)) return `You don't have access to ${PAGE_META[pageId].title} with this account.`;
+      goTo(pageId);
+      return `Opening ${PAGE_META[pageId].title}…`;
+    }
   }
 
   // Direct order-number lookup, e.g. "SO2609128" or "where is ACIN261596" — checked first
@@ -2795,62 +2826,62 @@ function answerAiQuery(raw){
     return `Order ${orderMatch.orderNumber} — ${orderMatch.customer} — is at "${stageName}".${outcome}${rating}`;
   }
 
-  if(qHas(q,'picked up today','delivered today','අද බෙදා','adha bedaha')){
+  if(qHas(q,'picked up today','delivered today')){
     const today = activeOrders().filter(o=>o.stage===STAGES.length-1 && isToday(o.completedAt));
     return `${today.length} order${today.length===1?'':'s'} picked up by delivery today.`;
   }
 
-  if(qHas(q,'order','ඇණවුම','anawum','ඕඩර්') && qHas(q,'today','summary','අද','සාරාංශ','adha')){
+  if(q.includes('order') && qHas(q,'today','summary')){
     const todays = state.orders.filter(o=>isToday(o.createdAt));
     if(todays.length===0) return "No orders were placed today yet.";
     const lines = STAGES.map((s,i)=>({s, n: todays.filter(o=>o.stage===i).length})).filter(x=>x.n>0).map(x=>`${x.s}: ${x.n}`).join(', ');
     return `Today's orders: ${todays.length} total. ${lines}.`;
   }
 
-  if(qHas(q,'order','ඇණවුම','anawum','ඕඩර්') && qHas(q,'pending','ලැබීමට','pending','ඉතිරි')){
+  if(q.includes('order') && q.includes('pending')){
     const active = activeOrders();
     const pending = active.filter(o=>o.stage < STAGES.length-1);
     return `${pending.length} pending order${pending.length===1?'':'s'} out of ${active.length} active order${active.length===1?'':'s'}.`;
   }
 
-  if(qHas(q,'priority','high priority','ප්‍රමුඛතාව','urgent')){
+  if(qHas(q,'priority','high priority','urgent')){
     const active = activeOrders();
     const high = active.filter(o=>o.priority==='High').length;
     return `${high} high-priority order${high===1?'':'s'} out of ${active.length} active.`;
   }
 
-  if(qHas(q,'returned','delivery outcome','ආපසු','apasu')){
+  if(qHas(q,'returned','delivery outcome')){
     const delivered = state.orders.filter(o=>o.deliveryOutcome==='Delivered').length;
     const returned = state.orders.filter(o=>o.deliveryOutcome==='Returned').length;
     return `${delivered} order${delivered===1?'':'s'} marked Delivered, ${returned} marked Returned.`;
   }
 
-  if(qHas(q,'order','ඇණවුම','anawum','ඕඩර්')){
+  if(q.includes('order')){
     const active = activeOrders();
     const lines = STAGES.map((s,i)=>`${s}: ${active.filter(o=>o.stage===i).length}`).join(', ');
     return `${active.length} active order${active.length===1?'':'s'} right now. ${lines}.`;
   }
 
-  if(qHas(q,'blend','batch','මිශ්‍ර','බැච්','mishra')){
+  if(qHas(q,'blend','batch')){
     const active = (state.blendBatches||[]).filter(b=>b.stage < BLEND_STAGES.length-1);
     if(active.length===0) return "No blending batches are in progress right now.";
     const names = active.map(b=>`${[b.product,b.qty].filter(Boolean).join(' ')||'Batch'} (${b.batchNo||'no batch #'}) — ${BLEND_STAGES[b.stage]}`).join('; ');
     return `${active.length} batch${active.length===1?'':'es'} in progress: ${names}.`;
   }
 
-  if(qHas(q,'complaint','පැමිණිලි','pamiili')){
+  if(q.includes('complaint')){
     const open = state.complaints.filter(c=>c.status==='Open'||c.status==='In Progress');
     if(open.length===0) return "No open complaints right now — all clear!";
     const list = open.map(c=>`${c.customer} (${c.category||'no reason set'}, ${c.status})`).join('; ');
     return `${open.length} open complaint${open.length===1?'':'s'}: ${list}.`;
   }
 
-  if(qHas(q,'revenue','ආදායම','adayama')){
+  if(q.includes('revenue')){
     const revenue = activeOrders().reduce((sum,o)=>sum + (Number(o.value)||0), 0);
     return `Total revenue from active orders: $${revenue.toFixed(2)}.`;
   }
 
-  if(qHas(q,'rating','review','ශ්‍රේණි','රේටින්','feedback')){
+  if(qHas(q,'rating','review','feedback')){
     const rated = state.orders.filter(o=>o.customerRating);
     if(rated.length===0) return "No customer ratings yet.";
     const avg = (rated.reduce((s,o)=>s+o.customerRating,0)/rated.length).toFixed(1);
@@ -2858,38 +2889,38 @@ function answerAiQuery(raw){
     return `${rated.length} rating${rated.length===1?'':'s'} so far, average ${avg}/5. ${low} rating${low===1?'':'s'} were 3 stars or below.`;
   }
 
-  if(qHas(q,'recipe','formula','වට්ටෝරු','wattoru')){
+  if(qHas(q,'recipe','formula')){
     if(!state.recipes || state.recipes.length===0) return "No recipes saved yet.";
     return `${state.recipes.length} recipe${state.recipes.length===1?'':'s'} saved: ${state.recipes.map(r=>r.name).join(', ')}.`;
   }
 
-  if(qHas(q,'supplier','vendor','සැපයුම්කරු','sapayum')){
+  if(qHas(q,'supplier','vendor')){
     if(state.suppliers.length===0) return "No suppliers added yet.";
     const active = state.suppliers.filter(s=>s.status==='Active'||!s.status).length;
     return `${state.suppliers.length} supplier${state.suppliers.length===1?'':'s'} on file (${active} active).`;
   }
 
-  if(qHas(q,'gmp','checklist','cleaning','පිරිසිදු','චෙක්ලිස්ට්')){
+  if(qHas(q,'gmp','checklist','cleaning')){
     const count = (state.gmpChecklistEntries||[]).length;
     return count>0 ? `${count} GMP checklist ${count===1?'entry has':'entries have'} been filled in so far.` : "No GMP checklist entries filled in yet.";
   }
 
-  if(qHas(q,'customer','පාරිභෝගික','paribogika')){
+  if(q.includes('customer')){
     return `You have ${state.customers.length} registered customer${state.customers.length===1?'':'s'}.`;
   }
 
-  if(qHas(q,'staff','who is working','who works','කාර්ය මණ්ඩල','සේවකයින්','sevakayin')){
+  if(qHas(q,'staff','who is working','who works')){
     if(state.staff.length===0) return "No staff members are set up yet.";
     return `Staff: ${state.staff.map(s=>s.name).join(', ')}.`;
   }
 
-  if(qHas(q,'delivery','courier','බෙදාහැරීම','ඩිලිවරි','bedahara')){
+  if(qHas(q,'delivery','courier')){
     const active = activeOrders();
     const lines = (state.deliveryLines||[]).map(l=>`${l.label}: ${active.filter(o=>o.courierService===l.key).length}`).join(', ');
     return lines ? `Orders by delivery line — ${lines}.` : "No delivery lines are set up yet.";
   }
 
-  return "I'm not sure about that yet — try asking about orders, blending batches, complaints, revenue, customers, staff, deliveries, recipes, suppliers, ratings, or GMP checklists (English or Sinhala both work).";
+  return "I'm not sure about that yet — try asking about orders, blending batches, complaints, revenue, customers, staff, deliveries, recipes, suppliers, ratings, GMP checklists, or say \"go to <page>\" to navigate there.";
 }
 function scrollAiChatToBottom(){
   const el = document.getElementById('aichat-log');
@@ -5811,7 +5842,7 @@ function changePasswordModal(){
     </div>
   </div>`;
 }
-const AI_SUGGESTIONS = ["Today's order summary", "Blending batches", "Open complaints", "Total revenue", "Customer ratings", "අද ඇණවුම් සාරාංශය"];
+const AI_SUGGESTIONS = ["Today's order summary", "Blending batches", "Open complaints", "Total revenue", "Customer ratings", "Go to settings"];
 function aiBotModal(){
   const chat = state.aiChat || [];
   return `
@@ -5819,7 +5850,7 @@ function aiBotModal(){
     <div class="modal" style="max-width:440px;display:flex;flex-direction:column;">
       <div>
         <h2 style="margin-bottom:2px;">Workspace Assistant</h2>
-        <div class="sub">Ask about orders, batches, complaints, revenue, customers, staff, deliveries, recipes, suppliers, ratings, or GMP — in English or Sinhala.</div>
+        <div class="sub">Ask about orders, batches, complaints, revenue, customers, staff, deliveries, recipes, suppliers, ratings, or GMP — or say "go to settings" to jump to a page.</div>
       </div>
       <div id="aichat-log" style="height:340px;overflow-y:auto;margin:12px 0;display:flex;flex-direction:column;gap:10px;padding:2px;">
         ${chat.length===0 ? `
