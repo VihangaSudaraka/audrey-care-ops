@@ -1179,7 +1179,7 @@ const ROLE_PAGES = {
   'Orders Process': ['ordersprocess']
 };
 // Pages an Admin can toggle on/off for Blending and Packing from Settings → Page access.
-const ROLE_PAGE_TOGGLES = ['dashboard','orders','orderinquiry','blending','recipes','customers','suppliers','complaints','gmp','staff','chat'];
+const ROLE_PAGE_TOGGLES = ['dashboard','orders','orderinquiry','blending','recipes','customers','suppliers','complaints','gmp','staff','chat','ratings'];
 function pagesForRole(role){
   const custom = state.auth.rolePages && state.auth.rolePages[role];
   return (Array.isArray(custom) && custom.length) ? custom : (ROLE_PAGES[role] || []);
