@@ -3589,7 +3589,7 @@ const NAV = [
     {id:'orders', label:'Orders board', icon:'orders'},
     {id:'orderinquiry', label:'Order inquiry', icon:'search'},
     {id:'blending', label:'Blending board', icon:'blender', children:[
-      {id:'recipes', label:'Recipes'},
+      {id:'recipes', label:'Production Guide'},
     ]},
     {id:'customers', label:'Customers', icon:'customers'},
     {id:'suppliers', label:'Suppliers', icon:'suppliers'},
@@ -3655,7 +3655,7 @@ function cardDragAfterElement(container, y){
   }, { offset: -Infinity, element: null }).element;
 }
 function navDragAfterElement(container, y){
-  const els = [...container.querySelectorAll('.nav-order-row:not(.dragging)')];
+  const els = [...container.querySelectorAll('.nav-order-row:not(.dragging):not(.nav-order-child)')];
   return els.reduce((closest, child)=>{
     const box = child.getBoundingClientRect();
     const offset = y - box.top - box.height/2;
@@ -3668,7 +3668,7 @@ const PAGE_META = {
   orders:{title:'Orders board', sub:'Track every order from received to delivered.'},
   orderinquiry:{title:'Order inquiry', sub:'Look up any order to answer a customer\'s question.'},
   blending:{title:'Blending board', sub:'Track every batch from blending through quality checks to stock.'},
-  recipes:{title:'Recipes', sub:'Batch recipes with step-by-step timers for the blending team.'},
+  recipes:{title:'Production Guide', sub:'Batch recipes with step-by-step timers for the blending team.'},
   customers:{title:'Customers', sub:'Everyone you ship products to.'},
   suppliers:{title:'Suppliers', sub:'Vendors you source raw materials from.'},
   complaints:{title:'Complaints', sub:'Customer issues and their resolution.'},
@@ -3732,7 +3732,7 @@ function renderShell(freshPage){
         <div style="display:flex;align-items:center;gap:12px;">
           <button class="menu-toggle" id="btn-menu-toggle">☰</button>
           <div>
-            <div class="page-title">${meta.title}</div>
+            <div class="page-title">${esc((state.navLabels && state.navLabels[state.page]) || meta.title)}</div>
             <div class="page-sub">${meta.sub}</div>
           </div>
         </div>
@@ -4664,7 +4664,14 @@ function renderSidebarOrderPanel(){
             <span class="nav-order-handle">⋮⋮</span>${icon(it.icon)}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(navLabel(it))}</span>
           </span>
           <button type="button" class="btn btn-sm" data-rename-nav-item="${it.id}" title="Rename" style="flex-shrink:0;">✏️</button>
-        </div>`).join('')}
+        </div>
+        ${(it.children||[]).map(c=>`
+        <div class="nav-order-row nav-order-child" data-nav-item="${c.id}" style="justify-content:space-between;padding-left:30px;">
+          <span style="display:flex;align-items:center;gap:8px;overflow:hidden;">
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">– ${esc(navLabel(c))}</span>
+          </span>
+          <button type="button" class="btn btn-sm" data-rename-nav-item="${c.id}" title="Rename" style="flex-shrink:0;">✏️</button>
+        </div>`).join('')}`).join('')}
       </div>`).join('')}
     </div>
   </div>`;
@@ -6846,7 +6853,7 @@ function attachShellHandlers(){
   if(byIdEl('btn-save-nav-order')) byIdEl('btn-save-nav-order').onclick = async ()=>{
     const newOrder = {};
     document.querySelectorAll('.nav-order-list:not([data-nav-group="deliverylines"])').forEach(list=>{
-      newOrder[list.dataset.navGroup] = [...list.querySelectorAll('.nav-order-row')].map(r=>r.dataset.navItem);
+      newOrder[list.dataset.navGroup] = [...list.querySelectorAll('.nav-order-row:not(.nav-order-child)')].map(r=>r.dataset.navItem);
     });
     state.navOrder = newOrder;
     await save('navOrder');
