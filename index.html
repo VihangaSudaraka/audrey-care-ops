@@ -3941,8 +3941,15 @@ function renderDeliveryBoardSection(line, active){
     </div>
   </div>`;
 }
+const ORDER_ARCHIVE_PAGE_SIZE = 60;
 function renderOrdersArchivePage(archived){
-  const allArchivedSelected = archived.length>0 && archived.every(o=>state.selectedOrders.has(o.id));
+  // Same unbounded-list problem as Order Inquiry (see ORDER_INQUIRY_PAGE_SIZE) — this tab shows
+  // every order ever archived, which with real history can be thousands of rows and made the
+  // Orders page (and scrolling on it) very slow. Page it the same way.
+  const limit = state.filters.orderArchiveLimit || ORDER_ARCHIVE_PAGE_SIZE;
+  const rows = archived.slice(0, limit);
+  const hiddenCount = archived.length - rows.length;
+  const allArchivedSelected = rows.length>0 && rows.every(o=>state.selectedOrders.has(o.id));
   return `
   <div class="toolbar">
     <div class="tabs">
@@ -3961,9 +3968,9 @@ function renderOrdersArchivePage(archived){
     </div>
   </div>
   <div class="hint" style="margin-bottom:12px;">Completed orders move here automatically 2 hours after being picked up by delivery.</div>
-  ${archived.length===0 ? `<div class="empty-state">No archived orders yet.</div>` : `
+  ${rows.length===0 ? `<div class="empty-state">No archived orders yet.</div>` : `
   <div class="panel">
-    ${archived.map(o=>`
+    ${rows.map(o=>`
     <div class="list-row" data-order-row="${o.id}">
       ${isAdmin() ? `<span onclick="event.stopPropagation()"><input type="checkbox" class="order-select-row" data-order-id="${o.id}" ${state.selectedOrders.has(o.id)?'checked':''}></span>` : ''}
       <span class="lr-avatar empty">${initials(o.customer||'?')}</span>
@@ -3972,7 +3979,8 @@ function renderOrdersArchivePage(archived){
       <span class="lr-date">📦 Archived ${daysAgo(o.archivedAt||o.completedAt)} ago</span>
       ${isAdmin() ? `<button type="button" class="btn btn-sm" data-restore-order="${o.id}" onclick="event.stopPropagation()">Restore</button>` : ''}
     </div>`).join('')}
-  </div>`}
+  </div>
+  ${hiddenCount>0 ? `<div style="text-align:center;margin-top:14px;"><button type="button" class="btn" id="btn-order-archive-more">Show older orders (${hiddenCount} more)</button></div>` : ''}`}
   `;
 }
 function boardOrderOf(o){ return o.boardOrder!=null ? o.boardOrder : new Date(o.createdAt).getTime(); }
@@ -4005,14 +4013,22 @@ function renderCard(o){
 // Orders land here once they've auto-archived — 2 hours after being picked up by delivery
 // (see ORDER_ARCHIVE_AFTER_MS / archivedOrders()). Names only; click a row for the full,
 // view-only details, or use the review buttons to text the customer a review link.
+const ORDER_INQUIRY_PAGE_SIZE = 60;
 function renderOrderInquiryPage(){
   const q = (state.filters.orderInquirySearch||'').toLowerCase();
-  const rows = archivedOrders().filter(o=>{
+  // With years of history, archivedOrders() can hold thousands of rows — rendering all of them
+  // unconditionally made this page (and scrolling on it) very slow on weaker machines. A search
+  // shows every match (search results are naturally small); otherwise show only the most recent
+  // page, with a button to reveal more.
+  const matches = archivedOrders().filter(o=>{
     if(!q) return true;
     return (o.customer||'').toLowerCase().includes(q)
       || (o.orderNumber||o.id||'').toLowerCase().includes(q)
       || (o.phone||'').includes(q);
   });
+  const limit = q ? matches.length : (state.filters.orderInquiryLimit || ORDER_INQUIRY_PAGE_SIZE);
+  const rows = matches.slice(0, limit);
+  const hiddenCount = matches.length - rows.length;
   return `
   <div class="toolbar">
     <input class="search-input" id="order-inquiry-search" placeholder="Search by customer name…" value="${esc(state.filters.orderInquirySearch||'')}">
@@ -4038,7 +4054,8 @@ function renderOrderInquiryPage(){
         </span>
       </div>`;
     }).join('')}
-  </div>`}
+  </div>
+  ${hiddenCount>0 ? `<div style="text-align:center;margin-top:14px;"><button type="button" class="btn" id="btn-order-inquiry-more">Show older orders (${hiddenCount} more)</button></div>` : ''}`}
   `;
 }
 
@@ -6760,6 +6777,10 @@ function attachShellHandlers(){
     });
     render();
   });
+  if(byIdEl('btn-order-archive-more')) byIdEl('btn-order-archive-more').onclick = ()=>{
+    state.filters.orderArchiveLimit = (state.filters.orderArchiveLimit || ORDER_ARCHIVE_PAGE_SIZE) + ORDER_ARCHIVE_PAGE_SIZE;
+    render();
+  };
   if(byIdEl('btn-delete-selected-orders')) byIdEl('btn-delete-selected-orders').onclick = async ()=>{
     const n = state.selectedOrders.size;
     if(!confirm(`Delete ${n} selected order${n===1?'':'s'}? This cannot be undone.`)) return;
@@ -7030,6 +7051,10 @@ function attachShellHandlers(){
   if(byIdEl('btn-new-customer')) byIdEl('btn-new-customer').onclick = ()=>openModal('customer:new');
   if(byIdEl('customer-search')) byIdEl('customer-search').addEventListener('input', e=>{ state.filters.customerSearch = e.target.value; render(); });
   if(byIdEl('order-inquiry-search')) byIdEl('order-inquiry-search').addEventListener('input', e=>{ state.filters.orderInquirySearch = e.target.value; render(); });
+  if(byIdEl('btn-order-inquiry-more')) byIdEl('btn-order-inquiry-more').onclick = ()=>{
+    state.filters.orderInquiryLimit = (state.filters.orderInquiryLimit || ORDER_INQUIRY_PAGE_SIZE) + ORDER_INQUIRY_PAGE_SIZE;
+    render();
+  };
   document.querySelectorAll('[data-review-fb]').forEach(b=>b.addEventListener('click', ()=>sendOrderReviewSms(b.dataset.reviewFb, 'facebook')));
   document.querySelectorAll('[data-review-google]').forEach(b=>b.addEventListener('click', ()=>sendOrderReviewSms(b.dataset.reviewGoogle, 'google')));
   document.querySelectorAll('[data-open-delivery-outcome]').forEach(b=>b.addEventListener('click', ()=>openModal('deliveryoutcome:'+b.dataset.openDeliveryOutcome)));
