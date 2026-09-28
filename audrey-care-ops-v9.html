@@ -6240,6 +6240,10 @@ function renderOrderDrawer(id){
   const ro = !isAdmin();
   const roAttr = ro ? 'readonly' : '';
   const roDis = ro ? 'disabled' : '';
+  // Packing marks orders picked up by delivery and is the one actually handed the CityPak tag,
+  // so they can also fix/enter it here afterwards — even though the rest of the order stays
+  // Admin-only to edit.
+  const courierNumberRoAttr = (isAdmin() || isPacking()) ? '' : 'readonly';
   return `
   <div class="drawer-overlay" id="overlay"></div>
   <div class="drawer">
@@ -6256,7 +6260,7 @@ function renderOrderDrawer(id){
       <span class="stage-badge" style="background:${style.bg};color:${style.c};">${STAGES[o.stage]}</span>
     </div>
 
-    ${ro ? `<div class="hint" style="margin-bottom:14px;">${o.archived ? 'View only — this order is archived and can\'t be edited.' : (canAdv ? 'View only — only Admin can edit order details, but you can move this order forward below.' : 'View only — only Admin can edit orders.')}</div>` : ''}
+    ${ro ? `<div class="hint" style="margin-bottom:14px;">${o.archived ? 'View only — this order is archived and can\'t be edited.' : (isPacking() ? 'View only — except the delivery tracking number below, which you can edit and save.' : (canAdv ? 'View only — only Admin can edit order details, but you can move this order forward below.' : 'View only — only Admin can edit orders.'))}</div>` : ''}
     <form id="form-order-edit" data-order-id="${o.id}">
       ${richTextField({name:'product', label:'Product / task', value:o.product, required:true, readOnly:ro})}
       <div class="field-row-3">
@@ -6283,7 +6287,7 @@ function renderOrderDrawer(id){
       </div>
       <div class="field-row">
         <div class="field"><label>Customer address</label><textarea name="address" ${roAttr}>${escBody(unbr(o.address||''))}</textarea></div>
-        <div class="field"><label>Delivery tracking number</label><input name="courierNumber" value="${esc(o.courierNumber||'')}" placeholder="Tracking number" ${roAttr}></div>
+        <div class="field"><label>Delivery tracking number</label><input name="courierNumber" value="${esc(o.courierNumber||'')}" placeholder="Tracking number" ${courierNumberRoAttr}></div>
       </div>
       ${orderPhotoField('order-photo', o.photo, ro)}
       <div class="field"><label>Notes</label><textarea name="notes" ${roAttr}>${escBody(unbr(o.notes))}</textarea></div>
@@ -6301,7 +6305,7 @@ function renderOrderDrawer(id){
         <div>${isAdmin() ? `<button type="button" class="btn btn-danger" id="btn-delete-order">Delete</button>` : ''}</div>
         <div style="display:flex;gap:8px;">
           ${canAdv ? `<button type="button" class="btn" id="btn-advance">${NEXT_ACTION_LABEL[o.stage]}</button>` : ''}
-          ${!ro ? `<button type="submit" class="btn btn-primary">Save</button>` : `<button type="button" class="btn" id="btn-cancel-modal-2">Close</button>`}
+          ${(!ro || isPacking()) ? `<button type="submit" class="btn btn-primary">Save</button>` : `<button type="button" class="btn" id="btn-cancel-modal-2">Close</button>`}
         </div>
       </div>
     </form>
