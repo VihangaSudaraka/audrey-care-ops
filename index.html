@@ -1005,7 +1005,10 @@ function subscribeRealtime(){
         state[k] = incoming;
         if(k==='theme') applyTheme();
         if(k==='branding') applyFavicon();
-        render();
+        // 'chat' and 'complaints' have follow-up effects right below that depend on the DOM
+        // already reflecting this update (scroll-to-bottom, notice popups) — those always render
+        // immediately. Everything else can be deferred while the user is mid-keystroke elsewhere.
+        if(k==='chat' || k==='complaints') render(); else renderOrDefer();
         if(k==='chat'){
           if(state.page==='chat') scrollChatToBottom();
           if(prevChatLen!==null && state.chat.length>prevChatLen){
@@ -3160,6 +3163,21 @@ function render(){
   const focusSnapshot = captureFocusedInput();
   renderInner();
   restoreFocusedInput(focusSnapshot);
+}
+// Renders normally, unless the user currently has a text field focused inside an open modal or
+// drawer (e.g. typing in the order edit form) — a background update (a teammate moving a
+// different order, elsewhere, on a shared workspace) shouldn't tear down and rebuild the whole
+// shell mid-keystroke. That full rebuild is cheap on a fast machine but showed up as real typing
+// lag on slower ones, especially with several people active at once. The state itself is still
+// updated immediately by the caller; only the DOM rebuild is pushed a moment out, and coalesces
+// into a single render if several background updates land in quick succession.
+let _deferredRenderTimer = null;
+function renderOrDefer(){
+  const active = document.activeElement;
+  const typing = active && (active.tagName==='INPUT' || active.tagName==='TEXTAREA' || active.isContentEditable) && active.closest('.modal, .drawer');
+  if(!typing){ render(); return; }
+  clearTimeout(_deferredRenderTimer);
+  _deferredRenderTimer = setTimeout(render, 250);
 }
 function renderInner(){
   const app = document.getElementById('app');
