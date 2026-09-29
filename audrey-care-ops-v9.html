@@ -1189,11 +1189,14 @@ function sweepCompletedOrders(){
   let changed = false;
   state.orders.forEach(o=>{
     if(o.stage!==lastStage || o.archived) return;
-    if(!o.completedAt){
-      // completed before archiving existed — archive it now so the board starts clean
+    const completedMs = o.completedAt ? new Date(o.completedAt).getTime() : NaN;
+    if(!o.completedAt || isNaN(completedMs)){
+      // Missing or unparseable completedAt (completed before archiving existed, or a malformed
+      // timestamp from old data) — archive it now rather than leaving it stuck forever, since
+      // `now - NaN` is always NaN and would never clear the >= check below.
       o.archived = true; o.archivedAt = new Date().toISOString(); changed = true; return;
     }
-    if(now - new Date(o.completedAt).getTime() >= ORDER_ARCHIVE_AFTER_MS){
+    if(now - completedMs >= ORDER_ARCHIVE_AFTER_MS){
       o.archived = true; o.archivedAt = new Date().toISOString(); changed = true;
     }
   });
