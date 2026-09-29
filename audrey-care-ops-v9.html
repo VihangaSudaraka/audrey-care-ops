@@ -3179,6 +3179,14 @@ function askAiSuggestion(text){
 function captureFocusedInput(){
   const el = document.activeElement;
   if(!el) return null;
+  // Rich-text fields (Product / task) are a contenteditable div, not a real form control — they
+  // don't have a .value the usual snapshot below can capture, so a background rebuild while
+  // typing into one silently wiped out everything typed so far. Handle them separately.
+  if(el.isContentEditable && el.dataset && el.dataset.richtextInput){
+    const form = el.closest('form');
+    const selector = (form && form.id ? '#'+CSS.escape(form.id)+' ' : '') + '[data-richtext-input="'+CSS.escape(el.dataset.richtextInput)+'"]';
+    return {selector, isRichText:true, value: el.innerHTML};
+  }
   const tag = el.tagName;
   if(tag!=='INPUT' && tag!=='TEXTAREA' && tag!=='SELECT') return null;
   // Most form fields in this app are identified by a `name` (read via FormData at submit time)
@@ -3204,6 +3212,11 @@ function restoreFocusedInput(snapshot){
   let el;
   try{ el = document.querySelector(snapshot.selector); }catch(e){ return; }
   if(!el) return;
+  if(snapshot.isRichText){
+    el.innerHTML = snapshot.value;
+    placeCaretAtEnd(el);
+    return;
+  }
   const tag = el.tagName;
   if(tag!=='INPUT' && tag!=='TEXTAREA' && tag!=='SELECT') return;
   el.value = snapshot.value;
@@ -3211,6 +3224,19 @@ function restoreFocusedInput(snapshot){
   if(typeof snapshot.selectionStart==='number' && typeof el.setSelectionRange==='function'){
     try{ el.setSelectionRange(snapshot.selectionStart, snapshot.selectionEnd); }catch(e){}
   }
+}
+// Rich-text cursor position isn't captured/restored precisely (unlike the character-offset
+// restore above for plain inputs) — landing at the end of whatever was typed is a reasonable
+// place to resume, and far better than losing focus (or the text) entirely.
+function placeCaretAtEnd(el){
+  el.focus();
+  if(typeof window.getSelection==='undefined' || typeof document.createRange==='undefined') return;
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  range.collapse(false);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
 }
 // Tracks which page last had its entrance animation played, so cards/stat boxes only
 // fade+slide in on an actual navigation — not on every re-render a keystroke or realtime
