@@ -1889,10 +1889,12 @@ async function loadAll(){
   // re-poll for new tracking events so the page updates live without needing a manual reload.
   // Stops itself once the shipment is marked delivered.
   if(state.trackMode) setInterval(pollCitypakTrackingIfActive, 30000);
-  setInterval(async ()=>{
+  const runArchiveSweep = async ()=>{
     if(sweepCompletedOrders()){ await save('orders'); render(); }
     if(sweepClosedComplaints()){ await save('complaints'); render(); }
-  }, 2*60*1000);
+  };
+  runArchiveSweep(); // don't wait for the first interval tick — catch anything already overdue right away
+  setInterval(runArchiveSweep, 2*60*1000);
   // Photo cleanup doesn't need to be prompt like the order/complaint archive sweep above — once
   // every 30 minutes is plenty for deleting old attachments.
   setInterval(async ()=>{
