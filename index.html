@@ -1892,6 +1892,10 @@ async function loadAll(){
   setInterval(async ()=>{
     if(sweepCompletedOrders()){ await save('orders'); render(); }
     if(sweepClosedComplaints()){ await save('complaints'); render(); }
+  }, 2*60*1000);
+  // Photo cleanup doesn't need to be prompt like the order/complaint archive sweep above — once
+  // every 30 minutes is plenty for deleting old attachments.
+  setInterval(async ()=>{
     if(state.session){
       const r = await sweepExpiredPhotos().catch(e=>{ console.error('expired photo sweep failed', e); return {orders:false, complaints:false}; });
       if(r.orders) await save('orders');
