@@ -2223,6 +2223,17 @@ async function triggerAutoOrderSms(o, kind){
     openModal('smsconfirm');
   }
 }
+// Manual escape hatch: an Admin can move an order straight to Order Inquiry instead of waiting
+// for the automatic 2-hour sweep (see sweepCompletedOrders) — useful if a record's completedAt
+// is missing/unreliable, or the order just needs to be off the board right away.
+async function archiveOrderNow(id){
+  const o = byId(state.orders,id);
+  if(!o || o.stage!==STAGES.length-1 || o.archived) return;
+  o.archived = true; o.archivedAt = new Date().toISOString();
+  await save('orders');
+  closeModal();
+  showToast('Order moved to Order Inquiry');
+}
 async function advanceOrder(id){
   const o = byId(state.orders,id);
   const lastStage = STAGES.length-1;
@@ -6410,7 +6421,10 @@ function renderOrderDrawer(id){
       </div>
 
       <div class="modal-actions" style="justify-content:space-between;">
-        <div>${isAdmin() ? `<button type="button" class="btn btn-danger" id="btn-delete-order">Delete</button>` : ''}</div>
+        <div style="display:flex;gap:8px;">
+          ${isAdmin() ? `<button type="button" class="btn btn-danger" id="btn-delete-order">Delete</button>` : ''}
+          ${isAdmin() && o.stage===STAGES.length-1 && !o.archived ? `<button type="button" class="btn" id="btn-archive-order-now" title="Move straight to Order Inquiry without waiting for the automatic 2-hour sweep">Archive now</button>` : ''}
+        </div>
         <div style="display:flex;gap:8px;">
           ${canAdv ? `<button type="button" class="btn" id="btn-advance">${NEXT_ACTION_LABEL[o.stage]}</button>` : ''}
           ${(!ro || isPacking()) ? `<button type="submit" class="btn btn-primary">Save</button>` : `<button type="button" class="btn" id="btn-cancel-modal-2">Close</button>`}
@@ -7507,6 +7521,7 @@ function attachShellHandlers(){
   };
   if(byIdEl('btn-sms-confirm-no')) byIdEl('btn-sms-confirm-no').onclick = ()=>closeModal();
   if(byIdEl('btn-delete-order')) byIdEl('btn-delete-order').onclick = ()=>{ const id=state.modal.split(':')[1]; deleteOrder(id); };
+  if(byIdEl('btn-archive-order-now')) byIdEl('btn-archive-order-now').onclick = ()=>{ const id=state.modal.split(':')[1]; archiveOrderNow(id); };
   if(byIdEl('form-order-edit')) byIdEl('form-order-edit').addEventListener('submit', submitOrderEdit);
   if(byIdEl('btn-copy-board-link')) byIdEl('btn-copy-board-link').onclick = async ()=>{
     const link = location.origin + location.pathname + '#board';
