@@ -694,6 +694,57 @@ async function kvSet(key, value){
   if(error){ console.error('kvSet '+key, error); return false; }
   return true;
 }
+// Every SYNCED_KEY is stored as one row holding its whole array/object — so a plain save()
+// overwrites the entire thing. If this tab's copy went stale (a dropped realtime connection, a
+// long-idle background tab, etc.) and someone else saved a change to a DIFFERENT record in the
+// meantime, a blind overwrite here would silently erase their change — e.g. an order someone
+// else just moved to "Picked Up by Delivery" reverting back to "Processing" the next time this
+// tab saves anything order-related. _syncBaseline holds this tab's last known-in-sync copy of
+// each key (from initial load, our own successful saves, and incoming realtime updates); on save
+// we diff our local copy against that baseline to see which records WE actually changed, then
+// merge just those onto the freshest server copy — so a concurrent edit to some other record
+// survives instead of being clobbered wholesale.
+let _syncBaseline = {};
+function snapshotBaseline(key){
+  _syncBaseline[key] = Array.isArray(state[key]) ? JSON.parse(JSON.stringify(state[key])) : state[key];
+}
+function isMergeableRecordArray(arr){
+  return Array.isArray(arr) && arr.length>0 && arr.every(r=>r && typeof r==='object' && 'id' in r);
+}
+async function mergeBeforeSave(key){
+  const local = state[key];
+  if(!isMergeableRecordArray(local)) return local;
+  const baseline = _syncBaseline[key];
+  if(!Array.isArray(baseline)) return local; // no baseline yet to diff against — save as-is
+  let serverArr;
+  try{ serverArr = await kvGet(key); }catch(e){ return local; }
+  if(!Array.isArray(serverArr)) return local;
+  const baselineById = new Map(baseline.map(r=>[r.id, r]));
+  const localById = new Map(local.map(r=>[r.id, r]));
+  const merged = [];
+  const seen = new Set();
+  serverArr.forEach(serverRec=>{
+    seen.add(serverRec.id);
+    const localRec = localById.get(serverRec.id);
+    const baseRec = baselineById.get(serverRec.id);
+    if(!localRec){
+      // We don't have this record locally. If our baseline didn't have it either, it's new on
+      // the server (someone else created it) — keep it. If our baseline DID have it, we deleted
+      // it locally — respect that deletion rather than resurrecting the server's copy.
+      if(!baseRec) merged.push(serverRec);
+      return;
+    }
+    const localChanged = JSON.stringify(localRec) !== JSON.stringify(baseRec);
+    merged.push(localChanged ? localRec : serverRec);
+  });
+  local.forEach(localRec=>{
+    if(seen.has(localRec.id)) return;
+    if(!baselineById.has(localRec.id)) merged.push(localRec); // created locally, not seen before
+    // else: existed in our baseline but the server no longer has it — someone else deleted it
+    // remotely; don't resurrect it.
+  });
+  return merged;
+}
 /* Sends an SMS via the send-sms Edge Function (which holds the real send.lk API key).
    Returns {ok:true} or {ok:false, error}. Never throws. */
 async function sendSms(recipient, message){
@@ -1003,6 +1054,7 @@ function subscribeRealtime(){
         const prevChatLen = (k==='chat' && Array.isArray(state.chat)) ? state.chat.length : null;
         const prevComplaintsById = (k==='complaints' && Array.isArray(state.complaints)) ? new Map(state.complaints.map(c=>[c.id,c])) : null;
         state[k] = incoming;
+        snapshotBaseline(k);
         if(k==='theme') applyTheme();
         if(k==='branding') applyFavicon();
         // 'chat' and 'complaints' have follow-up effects right below that depend on the DOM
@@ -1830,6 +1882,7 @@ async function loadAll(){
     const hashPage = ((location.hash||'').replace('#','').split('/')[0]||'').toLowerCase();
     if(hashPage && pageAllowed(hashPage)) state.page = hashPage;
   }
+  SYNCED_KEYS.forEach(k=>snapshotBaseline(k));
   render();
   subscribeRealtime();
   // Customer-facing tracking page: while a CityPak shipment is still in transit, silently
@@ -1857,14 +1910,16 @@ function pollCitypakTrackingIfActive(){
 async function saveAuth(){ try{ await kvSet('auth', state.auth); }catch(e){ console.error('save auth failed', e); } }
 async function save(key){
   try{
-    const ok = await kvSet(key, state[key]);
-    if(ok) return true;
+    const merged = await mergeBeforeSave(key);
+    const ok = await kvSet(key, merged);
+    if(ok){ state[key] = merged; snapshotBaseline(key); return true; }
   }catch(e){}
   // one retry after a short delay, in case of a transient/rate-limit error
   await new Promise(r=>setTimeout(r, 500));
   try{
-    const ok2 = await kvSet(key, state[key]);
-    if(ok2) return true;
+    const merged2 = await mergeBeforeSave(key);
+    const ok2 = await kvSet(key, merged2);
+    if(ok2){ state[key] = merged2; snapshotBaseline(key); return true; }
   }catch(e2){}
   console.error('save '+key+' failed');
   showToast('Could not save '+key+' — please try again');
