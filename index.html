@@ -4165,6 +4165,8 @@ function renderOrderInquiryPage(){
       const fbSent = !!o.reviewSentFbAt, googleSent = !!o.reviewSentGoogleAt;
       const fbLocked = fbSent && !admin, googleLocked = googleSent && !admin;
       const onHold = o.deliveryOutcome==='On Hold';
+      const delivered = o.deliveryOutcome==='Delivered';
+      const deliveredLocked = delivered && !admin;
       return `
       <div class="list-row" data-order-row="${o.id}" style="cursor:pointer;justify-content:space-between;">
         <span style="display:flex;align-items:center;gap:10px;">
@@ -4173,7 +4175,7 @@ function renderOrderInquiryPage(){
         </span>
         <span style="display:grid;grid-template-columns:132px 172px 172px;gap:8px;align-items:center;">
           ${o.deliveryOutcome
-            ? `<span class="pill ${o.deliveryOutcome==='Delivered'?'pill-active':(onHold?'pill-hold':'pill-high')}" style="width:100%;box-sizing:border-box;text-align:center;cursor:pointer;" data-open-delivery-outcome="${o.id}" onclick="event.stopPropagation()" title="Click to change">${esc(o.deliveryOutcome)}</span>`
+            ? `<span class="pill ${delivered?'pill-active':(onHold?'pill-hold':'pill-high')}" style="width:100%;box-sizing:border-box;text-align:center;cursor:${deliveredLocked?'default':'pointer'};" ${deliveredLocked?'':`data-open-delivery-outcome="${o.id}"`} onclick="event.stopPropagation()" ${deliveredLocked?'title="Delivered — only Admin can change this."':'title="Click to change"'}>${esc(o.deliveryOutcome)}</span>`
             : `<button type="button" class="btn btn-sm" style="width:100%;" data-open-delivery-outcome="${o.id}" onclick="event.stopPropagation()">Delivery status</button>`}
           <button type="button" class="btn btn-sm" style="width:100%;" data-review-fb="${o.id}" ${fbLocked?'disabled title="Already sent — only Admin can send it again."':''} onclick="event.stopPropagation()">${fbSent?'FB review sent ✓':'Send FB review link'}</button>
           <button type="button" class="btn btn-sm" style="width:100%;" data-review-google="${o.id}" ${googleLocked?'disabled title="Already sent — only Admin can send it again."':''} onclick="event.stopPropagation()">${googleSent?'Google review sent ✓':'Send Google review'}</button>
