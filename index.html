@@ -398,8 +398,8 @@
 
   /* ---------------- Login screen ---------------- */
   .login-screen{min-height:100vh;display:flex;align-items:stretch;background:#fff;}
-  .login-illustration{flex:1.1;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#EAF7EE 0%,#D7F0E0 55%,#EAF7EE 100%);padding:40px;min-width:0;overflow:hidden;position:relative;}
-  .login-illustration-logo{width:100%;max-width:300px;height:auto;display:block;position:relative;z-index:1;filter:drop-shadow(0 8px 24px rgba(20,70,42,.18));}
+  .login-illustration{flex:1.1;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--accent-soft) 0%,color-mix(in srgb,var(--accent-soft) 55%,var(--accent) 45%) 55%,var(--accent-soft) 100%);padding:40px;min-width:0;overflow:hidden;position:relative;}
+  .login-illustration-logo{width:100%;max-width:300px;height:auto;display:block;position:relative;z-index:1;filter:drop-shadow(0 8px 24px color-mix(in srgb,var(--accent-dark) 35%,transparent));}
   .login-panel{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 32px;position:relative;overflow:hidden;}
   .login-panel-inner{width:100%;max-width:380px;margin-top:-72px;position:relative;z-index:1;}
   .login-blob{position:absolute;border-radius:50%;filter:blur(60px);pointer-events:none;z-index:0;}
@@ -1104,6 +1104,7 @@ const THEME_PALETTES = [
   {id:'black', name:'Black', swatch:'#2B2B2B', accent:'#2B2B2B', accentDark:'#111111', accentSoft:'#ECECEC', accentGrad:'linear-gradient(90deg,#4A4A4A,#2B2B2B)'},
   {id:'yellow', name:'Yellow', swatch:'#D4A017', accent:'#D4A017', accentDark:'#A67C00', accentSoft:'#FDF3D8', accentGrad:'linear-gradient(90deg,#E8BB3C,#D4A017)'},
   {id:'purple', name:'Purple', swatch:'#7C6FC4', accent:'#7C6FC4', accentDark:'#5F52A3', accentSoft:'#EDEAFA', accentGrad:'linear-gradient(90deg,#9385DA,#7C6FC4)'},
+  {id:'indigo', name:'Indigo', swatch:'#5B4FE8', accent:'#5B4FE8', accentDark:'#4538C2', accentSoft:'#ECEBFA', accentGrad:'linear-gradient(90deg,#7A6FEE,#5B4FE8)'},
   {id:'mint', name:'Mint', swatch:'#2FBF8F', accent:'#2FBF8F', accentDark:'#1F9873', accentSoft:'#E1F8F0', accentGrad:'linear-gradient(90deg,#4FD3A8,#2FBF8F)'},
 ];
 function currentPalette(){
