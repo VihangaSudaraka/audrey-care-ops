@@ -1751,6 +1751,7 @@ let state = {
   _bulkSmsTemplateForm: null,
   navLabels: {},
   selectedComplaints: new Set(),
+  selectedRatings: new Set(),
   filters: { complaintStatus: 'Open', customerSearch:'', supplierSearch:'', orderInquirySearch:'', bulkSmsCustomerSearch:'', gmpChecklistId: null, gmpChecklistPeriod: null, gmpChecklistView: 'grid' },
   trackMode: ((location.hash||'').replace('#','').split('/')[0]||'').toLowerCase()==='track',
   trackQuery: '', trackedOrderId: null, trackError: '',
@@ -5065,20 +5066,31 @@ function manageBulkSmsTemplatesModal(){
 }
 /* ===================== Customer ratings page ===================== */
 function renderRatingsPage(){
+  const admin = isAdmin();
   const rated = state.orders.filter(o=>o.customerRating).slice().sort((a,b)=>new Date(b.customerRatingAt||0)-new Date(a.customerRatingAt||0));
   const avg = rated.length ? (rated.reduce((sum,o)=>sum+o.customerRating,0)/rated.length) : 0;
+  const allSelected = rated.length>0 && rated.every(o=>state.selectedRatings.has(o.id));
   return `
   <div class="stat-grid">
     <div class="stat-card"><div class="label">Ratings received</div><div class="value">${rated.length}</div></div>
     <div class="stat-card"><div class="label">Average rating</div><div class="value accent">${rated.length?avg.toFixed(1)+' ★':'—'}</div></div>
   </div>
+  ${admin && state.selectedRatings.size>0 ? `
+  <div class="toolbar">
+    <span class="hint">${state.selectedRatings.size} selected</span>
+    <button type="button" class="btn btn-sm btn-danger" id="btn-delete-selected-ratings">Delete selected</button>
+  </div>` : ''}
   <div class="panel">
     ${rated.length===0 ? `<div class="empty-state">No ratings yet — they'll show up here once customers rate their delivery on the track order page.</div>` : `
     <table class="data-table">
-      <thead><tr><th>Customer name</th><th>Phone number</th><th>Order number</th><th>Rating</th><th>Feedback</th></tr></thead>
+      <thead><tr>
+        ${admin?`<th style="width:36px;"><input type="checkbox" id="rating-select-all" ${allSelected?'checked':''}></th>`:''}
+        <th>Customer name</th><th>Phone number</th><th>Order number</th><th>Rating</th><th>Feedback</th>
+      </tr></thead>
       <tbody>
         ${rated.map(o=>`
         <tr>
+          ${admin?`<td><input type="checkbox" class="rating-select-row" data-rating-id="${o.id}" ${state.selectedRatings.has(o.id)?'checked':''}></td>`:''}
           <td>${esc(o.customer)}</td>
           <td>${esc(o.phone)||'—'}</td>
           <td>${esc(o.orderNumber||o.id)}</td>
@@ -7243,6 +7255,37 @@ function attachShellHandlers(){
     state.selectedCustomers.clear();
     await save('customers');
     showToast(`Deleted ${n} customer${n===1?'':'s'}`);
+  };
+
+  // Customer ratings
+  document.querySelectorAll('.rating-select-row').forEach(cb=>cb.addEventListener('change', ()=>{
+    if(cb.checked) state.selectedRatings.add(cb.dataset.ratingId); else state.selectedRatings.delete(cb.dataset.ratingId);
+    render();
+  }));
+  if(byIdEl('rating-select-all')){
+    const rowBoxes = [...document.querySelectorAll('.rating-select-row')];
+    const selectAllBox = byIdEl('rating-select-all');
+    selectAllBox.checked = rowBoxes.length>0 && rowBoxes.every(cb=>cb.checked);
+    selectAllBox.indeterminate = rowBoxes.some(cb=>cb.checked) && !selectAllBox.checked;
+    selectAllBox.addEventListener('change', ()=>{
+      rowBoxes.forEach(cb=>{
+        if(selectAllBox.checked) state.selectedRatings.add(cb.dataset.ratingId);
+        else state.selectedRatings.delete(cb.dataset.ratingId);
+      });
+      render();
+    });
+  }
+  if(byIdEl('btn-delete-selected-ratings')) byIdEl('btn-delete-selected-ratings').onclick = async ()=>{
+    const n = state.selectedRatings.size;
+    if(!confirm(`Delete ${n} selected rating${n===1?'':'s'}? This cannot be undone.`)) return;
+    state.orders.forEach(o=>{
+      if(state.selectedRatings.has(o.id)){
+        delete o.customerRating; delete o.customerRatingAt; delete o.customerRatingFeedback;
+      }
+    });
+    state.selectedRatings.clear();
+    await save('orders');
+    showToast(`Deleted ${n} rating${n===1?'':'s'}`);
   };
 
   // Suppliers
