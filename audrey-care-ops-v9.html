@@ -3710,14 +3710,16 @@ const NAV = [
   {group:'Overview', items:[{id:'dashboard', label:'Dashboard', icon:'dashboard'}]},
   {group:'Operations', items:[
     {id:'orders', label:'Orders board', icon:'orders'},
-    {id:'orderinquiry', label:'Order inquiry', icon:'search'},
     {id:'blending', label:'Blending board', icon:'blender', children:[
       {id:'recipes', label:'Production Guide'},
     ]},
     {id:'customers', label:'Customers', icon:'customers'},
     {id:'suppliers', label:'Suppliers', icon:'suppliers'},
-    {id:'complaints', label:'Complaints', icon:'complaints'},
     {id:'ordersprocess', label:'Orders Process', icon:'list'},
+  ]},
+  {group:'Customer Care', items:[
+    {id:'orderinquiry', label:'Order inquiry', icon:'search'},
+    {id:'complaints', label:'Complaints', icon:'complaints'},
   ]},
   {group:'GMP', items:[
     {id:'gmp', label:'GMP checklists', icon:'gmp'},
