@@ -1681,7 +1681,8 @@ const ICONS = {
   send:'<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/>',
   chevron:'<path d="M9 6l6 6-6 6"/>',
   search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.8-4.8"/>',
-  star:'<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z"/>'
+  star:'<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z"/>',
+  headset:'<path d="M4 13v-1a8 8 0 0 1 16 0v1"/><rect x="2.5" y="13" width="4" height="6" rx="1.5"/><rect x="17.5" y="13" width="4" height="6" rx="1.5"/><path d="M19.5 19v.5a3 3 0 0 1-3 3h-3"/>'
 };
 function icon(name){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>`; }
 const TRACK_STAGE_PATHS = [
@@ -1719,7 +1720,7 @@ let state = {
   blendBatches: [],
   branding: {addons: []},
   navOrder: {},
-  navExpanded: {blending:true},
+  navExpanded: {blending:true, customercare:true},
   deliveryLines: [],
   staffCategories: [],
   complaintCategories: [],
@@ -3713,13 +3714,13 @@ const NAV = [
     {id:'blending', label:'Blending board', icon:'blender', children:[
       {id:'recipes', label:'Production Guide'},
     ]},
+    {id:'customercare', label:'Customer Care', icon:'headset', children:[
+      {id:'orderinquiry', label:'Order inquiry'},
+      {id:'complaints', label:'Complaints'},
+    ]},
     {id:'customers', label:'Customers', icon:'customers'},
     {id:'suppliers', label:'Suppliers', icon:'suppliers'},
     {id:'ordersprocess', label:'Orders Process', icon:'list'},
-  ]},
-  {group:'Customer Care', items:[
-    {id:'orderinquiry', label:'Order inquiry', icon:'search'},
-    {id:'complaints', label:'Complaints', icon:'complaints'},
   ]},
   {group:'GMP', items:[
     {id:'gmp', label:'GMP checklists', icon:'gmp'},
@@ -3765,7 +3766,11 @@ async function renameNavItem(id){
 }
 function navGroupsFor(allowedIds){
   return NAV
-    .map(g => ({ ...g, items: orderedNavItems(g.group, g.items.filter(it => allowedIds.includes(it.id)))
+    .map(g => ({ ...g, items: orderedNavItems(g.group, g.items.filter(it => {
+        const ownAllowed = allowedIds.includes(it.id);
+        const hasAllowedChild = it.children && it.children.some(c=>allowedIds.includes(c.id));
+        return ownAllowed || hasAllowedChild;
+      }))
       .map(it => it.children ? {...it, children: it.children.filter(c=>allowedIds.includes(c.id))} : it) }))
     .filter(g => g.items.length > 0);
 }
