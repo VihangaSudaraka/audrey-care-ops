@@ -68,6 +68,7 @@
     overflow-y:auto;
     z-index:40;transition:transform .2s ease;
   }
+  .sidebar-backdrop{display:none;}
   .sidebar .brand{padding:22px 20px 16px;border-bottom:1px solid var(--border);}
   .sidebar .brand .wordmark{font-size:21px;color:var(--accent-dark);}
   .sidebar .brand .brand-logo{display:block;height:44px;width:auto;object-fit:contain;}
@@ -546,6 +547,7 @@
     .sidebar.open{transform:translateX(0);}
     .main{margin-left:0;}
     .menu-toggle{display:inline-flex;}
+    .sidebar-backdrop{display:block;position:fixed;inset:0;background:rgba(20,25,20,.35);z-index:39;animation:overlay-fade .18s ease;}
     .field-row{grid-template-columns:1fr;}
     main.page{padding:14px 14px 70px;}
     .topbar{padding:12px 14px;}
@@ -3901,6 +3903,7 @@ function renderShell(freshPage){
   _lastAdminBroadcastId = broadcastId;
   return `
   <div class="shell ${justLoggedIn?'shell-enter':''}">
+    ${state.sidebarOpen ? `<div class="sidebar-backdrop" id="sidebar-backdrop"></div>` : ''}
     <aside class="sidebar ${state.sidebarOpen?'open':''}">
       <div class="brand">
         <img src="${currentLogo()}" alt="Audrey" class="brand-logo">
@@ -6965,6 +6968,7 @@ function attachShellHandlers(){
     render();
   }));
   if(byIdEl('btn-menu-toggle')) byIdEl('btn-menu-toggle').onclick = toggleSidebar;
+  if(byIdEl('sidebar-backdrop')) byIdEl('sidebar-backdrop').onclick = toggleSidebar;
   if(byIdEl('btn-switch-role')) byIdEl('btn-switch-role').onclick = logOut;
   if(byIdEl('btn-open-aibot')) byIdEl('btn-open-aibot').onclick = ()=>openModal('aibot');
   if(byIdEl('btn-change-password')) byIdEl('btn-change-password').onclick = ()=>openModal('changepassword');
