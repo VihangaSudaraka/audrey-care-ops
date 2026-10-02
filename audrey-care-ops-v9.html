@@ -3333,6 +3333,63 @@ function placeCaretAtEnd(el){
   sel.removeAllRanges();
   sel.addRange(range);
 }
+// captureFocusedInput only protects the ONE field you're actively typing in — fine for a lone
+// search box, but an open form (new order, edit customer, …) usually has several fields already
+// filled in before you tab away from them. A background update landing while you're on, say,
+// field 4 would rebuild the form from scratch and silently reset fields 1-3 back to blank even
+// though captureFocusedInput faithfully restored field 4 — "my other typed text disappeared" even
+// though nothing looked wrong with the field you were actually looking at. This snapshots every
+// field inside the open modal/drawer, not just the focused one, so the whole in-progress form
+// survives a background re-render, not only its current cursor position.
+function captureOpenFormFields(container){
+  if(!container) return null;
+  const snapshots = [];
+  container.querySelectorAll('input, textarea, select, [data-richtext-input]').forEach(el=>{
+    const focused = el===document.activeElement;
+    if(el.isContentEditable && el.dataset && el.dataset.richtextInput){
+      const form = el.closest('form');
+      const selector = (form && form.id ? '#'+CSS.escape(form.id)+' ' : '') + '[data-richtext-input="'+CSS.escape(el.dataset.richtextInput)+'"]';
+      snapshots.push({selector, isRichText:true, value: el.innerHTML, focused});
+      return;
+    }
+    const tag = el.tagName;
+    if(tag!=='INPUT' && tag!=='TEXTAREA' && tag!=='SELECT') return;
+    if(tag==='INPUT' && (el.type==='checkbox' || el.type==='radio')) return; // .value isn't their checked state; rare in these forms and not worth the extra bookkeeping
+    let selector = null;
+    if(el.id){ selector = '#'+CSS.escape(el.id); }
+    else if(el.name){
+      const form = el.closest('form');
+      selector = (form && form.id ? '#'+CSS.escape(form.id)+' ' : '') + '[name="'+CSS.escape(el.name)+'"]';
+    }
+    if(!selector) return;
+    const snap = {selector, value: el.value, focused};
+    if(focused && typeof el.selectionStart==='number'){ snap.selectionStart = el.selectionStart; snap.selectionEnd = el.selectionEnd; }
+    snapshots.push(snap);
+  });
+  return snapshots.length ? snapshots : null;
+}
+function restoreOpenFormFields(snapshots){
+  if(!snapshots) return;
+  snapshots.forEach(snap=>{
+    let el;
+    try{ el = document.querySelector(snap.selector); }catch(e){ return; }
+    if(!el) return;
+    if(snap.isRichText){
+      el.innerHTML = snap.value;
+      if(snap.focused) placeCaretAtEnd(el);
+      return;
+    }
+    const tag = el.tagName;
+    if(tag!=='INPUT' && tag!=='TEXTAREA' && tag!=='SELECT') return;
+    el.value = snap.value;
+    if(snap.focused){
+      el.focus();
+      if(typeof snap.selectionStart==='number' && typeof el.setSelectionRange==='function'){
+        try{ el.setSelectionRange(snap.selectionStart, snap.selectionEnd); }catch(e){}
+      }
+    }
+  });
+}
 // Tracks which page last had its entrance animation played, so cards/stat boxes only
 // fade+slide in on an actual navigation — not on every re-render a keystroke or realtime
 // update triggers while staying on the same page.
@@ -3345,9 +3402,16 @@ let _lastEnterPage = null;
 let _lastOpenModal = null;
 let _lastAdminBroadcastId = null;
 function render(){
-  const focusSnapshot = captureFocusedInput();
-  renderInner();
-  restoreFocusedInput(focusSnapshot);
+  const openForm = document.querySelector('.modal, .drawer');
+  if(openForm){
+    const formSnapshot = captureOpenFormFields(openForm);
+    renderInner();
+    restoreOpenFormFields(formSnapshot);
+  } else {
+    const focusSnapshot = captureFocusedInput();
+    renderInner();
+    restoreFocusedInput(focusSnapshot);
+  }
 }
 // Renders normally, unless the user currently has a text field focused inside an open modal or
 // drawer (e.g. typing in the order edit form) — a background update (a teammate moving a
