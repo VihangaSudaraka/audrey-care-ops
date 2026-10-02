@@ -729,14 +729,16 @@ function snapshotBaseline(key){
 function isMergeableRecordArray(arr){
   return Array.isArray(arr) && arr.length>0 && arr.every(r=>r && typeof r==='object' && 'id' in r);
 }
-async function mergeBeforeSave(key){
+// Shared by mergeBeforeSave (local-vs-freshly-fetched-server) and the realtime handler
+// (local-vs-incoming-broadcast) — same diff-and-merge rule either way: a server/incoming record
+// wins unless this tab has a genuinely different local copy (vs our last-known-synced baseline),
+// in which case the local copy wins; a record only in baseline+local-missing is a local deletion
+// (respected, not resurrected); a record only in local+not-in-baseline is a local creation (kept).
+function reconcileRecordArray(key, serverArr){
   const local = state[key];
-  if(!isMergeableRecordArray(local)) return local;
+  if(!isMergeableRecordArray(local) || !Array.isArray(serverArr)) return serverArr;
   const baseline = _syncBaseline[key];
-  if(!Array.isArray(baseline)) return local; // no baseline yet to diff against — save as-is
-  let serverArr;
-  try{ serverArr = await kvGet(key); }catch(e){ return local; }
-  if(!Array.isArray(serverArr)) return local;
+  if(!Array.isArray(baseline)) return serverArr; // no baseline yet to diff against
   const baselineById = new Map(baseline.map(r=>[r.id, r]));
   const localById = new Map(local.map(r=>[r.id, r]));
   const merged = [];
@@ -762,6 +764,15 @@ async function mergeBeforeSave(key){
     // remotely; don't resurrect it.
   });
   return merged;
+}
+async function mergeBeforeSave(key){
+  const local = state[key];
+  if(!isMergeableRecordArray(local)) return local;
+  if(!Array.isArray(_syncBaseline[key])) return local; // no baseline yet to diff against — save as-is
+  let serverArr;
+  try{ serverArr = await kvGet(key); }catch(e){ return local; }
+  if(!Array.isArray(serverArr)) return local;
+  return reconcileRecordArray(key, serverArr);
 }
 /* Sends an SMS via the send-sms Edge Function (which holds the real send.lk API key).
    Returns {ok:true} or {ok:false, error}. Never throws. */
@@ -1071,7 +1082,11 @@ function subscribeRealtime(){
         if(stableStringify(state[k])===stableStringify(incoming) || recentlySavedByUs(k)) return;
         const prevChatLen = (k==='chat' && Array.isArray(state.chat)) ? state.chat.length : null;
         const prevComplaintsById = (k==='complaints' && Array.isArray(state.complaints)) ? new Map(state.complaints.map(c=>[c.id,c])) : null;
-        state[k] = incoming;
+        // Don't blindly replace local state with this broadcast — if we have a record (e.g. an
+        // order) that's brand new or locally edited and not yet saved, a wholesale overwrite here
+        // would silently erase it the instant any unrelated realtime update for this key arrives.
+        // reconcileRecordArray no-ops back to a plain overwrite for non-array/non-record keys.
+        state[k] = reconcileRecordArray(k, incoming);
         snapshotBaseline(k);
         if(k==='theme') applyTheme();
         if(k==='branding') applyFavicon();
@@ -1938,7 +1953,19 @@ function pollCitypakTrackingIfActive(){
   ensureCitypakTracking(o.courierNumber, true);
 }
 async function saveAuth(){ try{ await kvSet('auth', state.auth); }catch(e){ console.error('save auth failed', e); } }
-async function save(key){
+// Two overlapping save() calls for the SAME key (e.g. the background archive sweep firing while
+// a manual edit is mid-save) would each fetch-merge-write independently and could interleave —
+// the later write's merge wouldn't yet know about the earlier write's change, discarding it. This
+// queue makes same-key saves run one at a time so each one's merge always sees the previous one's
+// result. Different keys still save fully in parallel.
+let _saveQueues = {};
+function save(key){
+  const prior = _saveQueues[key] || Promise.resolve();
+  const run = prior.then(()=>_saveOnce(key), ()=>_saveOnce(key));
+  _saveQueues[key] = run;
+  return run;
+}
+async function _saveOnce(key){
   try{
     const merged = await mergeBeforeSave(key);
     const ok = await kvSet(key, merged);
