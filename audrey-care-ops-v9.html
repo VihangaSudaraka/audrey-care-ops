@@ -698,13 +698,9 @@ const DEFAULT_ORDER_SETTINGS = {smsAutoSend:true, dragEnabled:false};
 function orderSmsAutoSend(){ return !state.orderSettings || state.orderSettings.smsAutoSend!==false; }
 function orderDragEnabled(){ return !!(state.orderSettings && state.orderSettings.dragEnabled); }
 
-// Last updated_at we actually observed for each key, so a save can tell whether anyone else
-// wrote to this key since we last read it — see kvSetSafely.
-let _lastSeenUpdatedAt = {};
 async function kvGet(key){
-  const { data, error } = await supabaseClient.from('app_data').select('value, updated_at').eq('key', key).maybeSingle();
+  const { data, error } = await supabaseClient.from('app_data').select('value').eq('key', key).maybeSingle();
   if(error){ console.error('kvGet '+key, error); return null; }
-  _lastSeenUpdatedAt[key] = data ? data.updated_at : null;
   return data ? data.value : null;
 }
 // Timestamp of the last time WE wrote each key, so the realtime handler can recognize its own
@@ -717,35 +713,6 @@ async function kvSet(key, value){
   const { error } = await supabaseClient.from('app_data').upsert({ key, value, updated_at: new Date().toISOString() });
   if(error){ console.error('kvSet '+key, error); return false; }
   return true;
-}
-// Two tabs/devices can each fetch the same row, merge in their own change, and write back —
-// if both read before either wrote, the second write silently erases the first's change no
-// matter how good the merge logic is, because neither ever saw the other's update. This closes
-// that gap for record-array keys (orders, complaints, etc.): the write only applies if nobody
-// else has touched the row since mergeBeforeSave's kvGet read it (checked via updated_at); if
-// someone else won the race, we report that so the caller can refetch, re-merge, and retry
-// instead of overwriting their change. Settings-type keys keep the simple blind write — much
-// lower stakes if two of those race, and not worth the extra round trip on every save.
-async function kvSetSafely(key, value){
-  if(!isMergeableRecordArray(value) || !_lastSeenUpdatedAt[key]) return kvSet(key, value);
-  const expected = _lastSeenUpdatedAt[key];
-  // updated_at must actually move forward on a successful write — if it landed in the same
-  // millisecond as `expected` (rare, but two kvGet/kvSet round-trips are not guaranteed to be
-  // >1ms apart), the row's updated_at wouldn't change at all, so a second, stale write using
-  // that same `expected` would ALSO pass this exact check and still clobber the first write.
-  let myStamp = new Date().toISOString();
-  while(myStamp === expected){ await new Promise(r=>setTimeout(r, 2)); myStamp = new Date().toISOString(); }
-  _recentSaveAt[key] = Date.now();
-  const { error } = await supabaseClient.from('app_data')
-    .update({ value, updated_at: myStamp })
-    .eq('key', key).eq('updated_at', expected);
-  if(error){ console.error('kvSet '+key, error); return false; }
-  // Confirm our write actually landed by re-reading and comparing content, rather than trusting
-  // the UPDATE call's own response (it doesn't return the affected row here) or comparing our own
-  // candidate timestamp against the stored one (two different writers' independently-generated
-  // candidate stamps could themselves coincidentally match).
-  const verify = await kvGet(key);
-  return stableStringify(verify) === stableStringify(value);
 }
 // Every SYNCED_KEY is stored as one row holding its whole array/object — so a plain save()
 // overwrites the entire thing. If this tab's copy went stale (a dropped realtime connection, a
@@ -2001,18 +1968,14 @@ function save(key){
   return run;
 }
 async function _saveOnce(key){
-  // Up to 4 attempts: most succeed on the first try; a retry here means another tab/device's
-  // save landed in the same instant as ours (kvSetSafely detects this for record-array keys) or
-  // a transient/rate-limit error occurred — each attempt re-fetches and re-merges fresh, so a
-  // retry naturally picks up whatever the other side just wrote instead of overwriting it.
-  for(let attempt=0; attempt<4; attempt++){
+  // Two attempts: the second covers a transient/rate-limit error on the first.
+  for(let attempt=0; attempt<2; attempt++){
     try{
-      delete _lastSeenUpdatedAt[key];
       const merged = await mergeBeforeSave(key);
-      const ok = await kvSetSafely(key, merged);
+      const ok = await kvSet(key, merged);
       if(ok){ state[key] = merged; snapshotBaseline(key); return true; }
     }catch(e){}
-    await new Promise(r=>setTimeout(r, 300 + attempt*250));
+    await new Promise(r=>setTimeout(r, 500));
   }
   console.error('save '+key+' failed');
   showToast('Could not save '+key+' — please try again');
