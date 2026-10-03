@@ -4285,7 +4285,8 @@ function renderOrderInquiryPage(){
           <span class="lr-avatar empty">${initials(o.customer||'?')}</span>
           <span class="lr-name">${esc(o.customer)}</span>
         </span>
-        <span class="oi-row-actions" style="display:grid;grid-template-columns:132px 172px 172px;gap:8px;align-items:center;">
+        <span class="oi-row-actions" style="display:grid;grid-template-columns:140px 132px 172px 172px;gap:8px;align-items:center;">
+          <button type="button" class="btn btn-sm" style="width:100%;" data-view-tracking="${o.id}" onclick="event.stopPropagation()">👁 View tracking</button>
           ${o.deliveryOutcome
             ? `<span class="pill ${delivered?'pill-active':(onHold?'pill-hold':'pill-high')}" style="width:100%;box-sizing:border-box;text-align:center;cursor:${deliveredLocked?'default':'pointer'};" ${deliveredLocked?'':`data-open-delivery-outcome="${o.id}"`} onclick="event.stopPropagation()" ${deliveredLocked?'title="Delivered — only Admin can change this."':'title="Click to change"'}>${esc(o.deliveryOutcome)}</span>`
             : `<button type="button" class="btn btn-sm" style="width:100%;" data-open-delivery-outcome="${o.id}" onclick="event.stopPropagation()">Delivery status</button>`}
@@ -7322,6 +7323,7 @@ function attachShellHandlers(){
     state.filters.orderInquiryLimit = (state.filters.orderInquiryLimit || ORDER_INQUIRY_PAGE_SIZE) + ORDER_INQUIRY_PAGE_SIZE;
     render();
   };
+  document.querySelectorAll('[data-view-tracking]').forEach(b=>b.addEventListener('click', ()=>window.open(orderTrackLink(b.dataset.viewTracking), '_blank')));
   document.querySelectorAll('[data-review-fb]').forEach(b=>b.addEventListener('click', ()=>sendOrderReviewSms(b.dataset.reviewFb, 'facebook')));
   document.querySelectorAll('[data-review-google]').forEach(b=>b.addEventListener('click', ()=>sendOrderReviewSms(b.dataset.reviewGoogle, 'google')));
   document.querySelectorAll('[data-open-delivery-outcome]').forEach(b=>b.addEventListener('click', ()=>openModal('deliveryoutcome:'+b.dataset.openDeliveryOutcome)));
